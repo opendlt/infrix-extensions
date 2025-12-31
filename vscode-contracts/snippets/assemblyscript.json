@@ -1,0 +1,161 @@
+{
+  "Accumen AS Contract": {
+    "prefix": "acc-contract",
+    "body": [
+      "import { Storage, Env, U256, Address } from \"@accumen/sdk\";",
+      "",
+      "// Storage keys",
+      "const OWNER_KEY = \"owner\";",
+      "",
+      "/**",
+      " * Initialize the contract",
+      " */",
+      "export function init(): void {",
+      "    const caller = Env.caller();",
+      "    Storage.setString(OWNER_KEY, caller.toString());",
+      "}",
+      "",
+      "/**",
+      " * ${1:description}",
+      " */",
+      "export function ${2:functionName}(${3:params}): ${4:void} {",
+      "    $0",
+      "}"
+    ],
+    "description": "Create a new Accumen AssemblyScript contract"
+  },
+  "Accumen AS Function": {
+    "prefix": "acc-function",
+    "body": [
+      "/**",
+      " * ${1:description}",
+      " */",
+      "export function ${2:functionName}(${3:params}): ${4:void} {",
+      "    $0",
+      "}"
+    ],
+    "description": "Export a contract function"
+  },
+  "Accumen AS Storage Get": {
+    "prefix": "acc-storage-get",
+    "body": [
+      "const ${1:value} = Storage.get${2|U256,String|}(\"${3:key}\");",
+      "if (${1:value} === null) {",
+      "    ${4:// Handle missing value}",
+      "}"
+    ],
+    "description": "Get value from storage"
+  },
+  "Accumen AS Storage Set": {
+    "prefix": "acc-storage-set",
+    "body": [
+      "Storage.set${1|U256,String|}(\"${2:key}\", ${3:value});"
+    ],
+    "description": "Set value in storage"
+  },
+  "Accumen AS Storage Map": {
+    "prefix": "acc-storage-map",
+    "body": [
+      "const ${1:map} = new StorageMap(\"${2:prefix}_\");",
+      "",
+      "// Get value",
+      "const value = ${1:map}.getU256(${3:key});",
+      "",
+      "// Set value",
+      "${1:map}.setU256(${3:key}, ${4:newValue});"
+    ],
+    "description": "Create and use a storage map"
+  },
+  "Accumen AS Event": {
+    "prefix": "acc-event",
+    "body": [
+      "// Emit event",
+      "Events.emitIndexed2(",
+      "    ${1:EVENT_SIGNATURE},",
+      "    Crypto.hashAddress(${2:from}),",
+      "    Crypto.hashAddress(${3:to}),",
+      "    ABI.encodeU256(${4:amount})",
+      ");"
+    ],
+    "description": "Emit a contract event"
+  },
+  "Accumen AS Require": {
+    "prefix": "acc-require",
+    "body": [
+      "Env.require(${1:condition}, ErrorCode.${2:INVALID_ARGUMENT});"
+    ],
+    "description": "Require condition or revert"
+  },
+  "Accumen AS Assert": {
+    "prefix": "acc-assert",
+    "body": [
+      "Env.assert(${1:condition}, \"${2:error message}\");"
+    ],
+    "description": "Assert condition with message"
+  },
+  "Accumen AS Transfer": {
+    "prefix": "acc-transfer",
+    "body": [
+      "const success = L0.transfer(${1:from}, ${2:to}, ${3:amount});",
+      "Env.assert(success, \"Transfer failed\");"
+    ],
+    "description": "L0 token transfer"
+  },
+  "Accumen AS Safe Math": {
+    "prefix": "acc-safe-add",
+    "body": [
+      "const ${1:result} = Utils.safeAdd(${2:a}, ${3:b});"
+    ],
+    "description": "Safe addition with overflow check"
+  },
+  "Accumen AS Caller Check": {
+    "prefix": "acc-caller-check",
+    "body": [
+      "const caller = Env.caller();",
+      "const owner = Storage.getString(\"owner\");",
+      "Env.assert(owner !== null && caller.toString() == owner, \"Unauthorized\");"
+    ],
+    "description": "Check caller is owner"
+  },
+  "Accumen AS Reentrancy Guard": {
+    "prefix": "acc-reentrancy",
+    "body": [
+      "const guard = new ReentrancyGuard();",
+      "guard.enter();",
+      "",
+      "// Protected code",
+      "${1:// Your code here}",
+      "",
+      "guard.exit();"
+    ],
+    "description": "Reentrancy guard pattern"
+  },
+  "Accumen AS Dispatcher": {
+    "prefix": "acc-dispatcher",
+    "body": [
+      "import { getSelector, getCallData, encodeReturn, encodeError, ErrorCode } from \"@accumen/sdk\";",
+      "",
+      "// Function selectors",
+      "const TRANSFER_SELECTOR: u32 = 0xa9059cbb;",
+      "const BALANCE_OF_SELECTOR: u32 = 0x70a08231;",
+      "",
+      "/**",
+      " * Main dispatcher",
+      " */",
+      "export function __accumen_call(input: Uint8Array): Uint8Array {",
+      "    const selector = getSelector(input);",
+      "    const data = getCallData(input);",
+      "",
+      "    switch (selector) {",
+      "        case TRANSFER_SELECTOR:",
+      "            return transfer(data);",
+      "        case BALANCE_OF_SELECTOR:",
+      "            return balanceOf(data);",
+      "        default:",
+      "            return encodeError(ErrorCode.UNKNOWN_FUNCTION);",
+      "    }",
+      "}"
+    ],
+    "description": "Contract function dispatcher"
+  }
+}

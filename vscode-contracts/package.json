@@ -1,0 +1,204 @@
+{
+  "name": "accumen-vscode",
+  "displayName": "Accumen Smart Contracts",
+  "description": "VS Code extension for developing Accumen smart contracts",
+  "version": "0.1.0",
+  "publisher": "accumulate-network",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets",
+    "Linters",
+    "Debuggers"
+  ],
+  "keywords": [
+    "accumulate",
+    "smart-contracts",
+    "wasm",
+    "blockchain",
+    "rust",
+    "assemblyscript"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AccumulateNetwork/accumen"
+  },
+  "license": "MIT",
+  "activationEvents": [
+    "onLanguage:rust",
+    "onLanguage:typescript",
+    "workspaceContains:**/Cargo.toml",
+    "workspaceContains:**/asconfig.json"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "accumen.init",
+        "title": "Accumen: Initialize New Contract Project"
+      },
+      {
+        "command": "accumen.build",
+        "title": "Accumen: Build Contract"
+      },
+      {
+        "command": "accumen.deploy",
+        "title": "Accumen: Deploy Contract"
+      },
+      {
+        "command": "accumen.call",
+        "title": "Accumen: Call Contract Function"
+      },
+      {
+        "command": "accumen.query",
+        "title": "Accumen: Query Contract State"
+      },
+      {
+        "command": "accumen.generateABI",
+        "title": "Accumen: Generate ABI"
+      },
+      {
+        "command": "accumen.viewEvents",
+        "title": "Accumen: View Contract Events"
+      },
+      {
+        "command": "accumen.setNetwork",
+        "title": "Accumen: Set Network"
+      }
+    ],
+    "configuration": {
+      "title": "Accumen",
+      "properties": {
+        "accumen.network": {
+          "type": "string",
+          "default": "testnet",
+          "enum": [
+            "mainnet",
+            "testnet",
+            "devnet",
+            "local"
+          ],
+          "description": "Default network for contract operations"
+        },
+        "accumen.rpcUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Custom RPC URL (overrides network default)"
+        },
+        "accumen.defaultKeyFile": {
+          "type": "string",
+          "default": "",
+          "description": "Path to default signing key file"
+        },
+        "accumen.autoGenerateABI": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically generate ABI after build"
+        },
+        "accumen.showDecorations": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inline decorations for contract functions"
+        }
+      }
+    },
+    "languages": [
+      {
+        "id": "accumen-abi",
+        "aliases": [
+          "Accumen ABI",
+          "abi"
+        ],
+        "extensions": [
+          ".abi.json"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "accumen-abi",
+        "scopeName": "source.json.abi",
+        "path": "./syntaxes/abi.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "rust",
+        "path": "./snippets/rust.json"
+      },
+      {
+        "language": "typescript",
+        "path": "./snippets/assemblyscript.json"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "resourceExtname == .rs || resourceExtname == .ts",
+          "command": "accumen.build",
+          "group": "accumen@1"
+        },
+        {
+          "when": "resourceExtname == .wasm",
+          "command": "accumen.deploy",
+          "group": "accumen@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "when": "resourceExtname == .wasm",
+          "command": "accumen.deploy",
+          "group": "accumen@1"
+        },
+        {
+          "when": "explorerResourceIsFolder",
+          "command": "accumen.init",
+          "group": "accumen@1"
+        }
+      ]
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "accumenContracts",
+          "name": "Accumen Contracts",
+          "when": "accumen.hasProject"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "accumen",
+          "title": "Accumen",
+          "icon": "resources/accumen-icon.svg"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "@vscode/test-electron": "^2.3.8",
+    "eslint": "^8.54.0",
+    "typescript": "^5.3.0",
+    "vsce": "^2.15.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.2"
+  }
+}

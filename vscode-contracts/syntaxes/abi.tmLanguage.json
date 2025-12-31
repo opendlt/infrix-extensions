@@ -1,0 +1,99 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Accumen ABI",
+  "scopeName": "source.json.abi",
+  "patterns": [
+    { "include": "#value" }
+  ],
+  "repository": {
+    "value": {
+      "patterns": [
+        { "include": "#object" },
+        { "include": "#array" },
+        { "include": "#string" },
+        { "include": "#number" },
+        { "include": "#constant" }
+      ]
+    },
+    "object": {
+      "begin": "\\{",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.dictionary.begin.json.abi" }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.dictionary.end.json.abi" }
+      },
+      "name": "meta.structure.dictionary.json.abi",
+      "patterns": [
+        { "include": "#key" },
+        { "include": "#value" }
+      ]
+    },
+    "array": {
+      "begin": "\\[",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.array.begin.json.abi" }
+      },
+      "end": "\\]",
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.array.end.json.abi" }
+      },
+      "name": "meta.structure.array.json.abi",
+      "patterns": [
+        { "include": "#value" }
+      ]
+    },
+    "key": {
+      "patterns": [
+        {
+          "match": "\"(name|version|functions|events|inputs|outputs|topics|data)\"",
+          "name": "support.type.property-name.json.abi"
+        },
+        {
+          "match": "\"(selector|signature|type|mutability|payable|indexed)\"",
+          "name": "entity.name.tag.json.abi"
+        },
+        {
+          "match": "\"[^\"]*\"",
+          "name": "string.key.json.abi"
+        }
+      ]
+    },
+    "string": {
+      "patterns": [
+        {
+          "match": "\"(uint256|u256|address|bool|string|bytes|bytes32)\"",
+          "name": "storage.type.json.abi"
+        },
+        {
+          "match": "\"(view|mutable|payable)\"",
+          "name": "keyword.control.json.abi"
+        },
+        {
+          "match": "\"0x[a-fA-F0-9]+\"",
+          "name": "constant.numeric.hex.json.abi"
+        },
+        {
+          "begin": "\"",
+          "end": "\"",
+          "name": "string.quoted.double.json.abi",
+          "patterns": [
+            {
+              "match": "\\\\.",
+              "name": "constant.character.escape.json.abi"
+            }
+          ]
+        }
+      ]
+    },
+    "number": {
+      "match": "-?\\d+(\\.\\d+)?([eE][+-]?\\d+)?",
+      "name": "constant.numeric.json.abi"
+    },
+    "constant": {
+      "match": "\\b(true|false|null)\\b",
+      "name": "constant.language.json.abi"
+    }
+  }
+}

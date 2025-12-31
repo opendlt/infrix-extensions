@@ -1,0 +1,200 @@
+{
+  "Accumen Contract": {
+    "prefix": "acc-contract",
+    "body": [
+      "#![no_std]",
+      "",
+      "use accumen_sdk::prelude::*;",
+      "",
+      "/// ${1:ContractName} contract",
+      "#[contract]",
+      "pub struct ${1:ContractName} {",
+      "    ${2:owner: Address,}",
+      "}",
+      "",
+      "#[contract_impl]",
+      "impl ${1:ContractName} {",
+      "    #[init]",
+      "    pub fn new() -> Self {",
+      "        Self {",
+      "            ${2:owner: env::caller(),}",
+      "        }",
+      "    }",
+      "",
+      "    $0",
+      "}"
+    ],
+    "description": "Create a new Accumen smart contract"
+  },
+  "Accumen Init Function": {
+    "prefix": "acc-init",
+    "body": [
+      "#[init]",
+      "pub fn new(${1:params}) -> Self {",
+      "    Self {",
+      "        ${2:fields}",
+      "    }",
+      "}"
+    ],
+    "description": "Contract initialization function"
+  },
+  "Accumen Call Function": {
+    "prefix": "acc-call",
+    "body": [
+      "#[call]",
+      "pub fn ${1:function_name}(&mut self${2:, params}) -> Result<${3:()}, Error> {",
+      "    $0",
+      "    Ok(${4:()})",
+      "}"
+    ],
+    "description": "State-modifying contract function"
+  },
+  "Accumen View Function": {
+    "prefix": "acc-view",
+    "body": [
+      "#[view]",
+      "pub fn ${1:function_name}(&self${2:, params}) -> ${3:return_type} {",
+      "    $0",
+      "}"
+    ],
+    "description": "Read-only contract function"
+  },
+  "Accumen Payable Function": {
+    "prefix": "acc-payable",
+    "body": [
+      "#[call(payable)]",
+      "pub fn ${1:function_name}(&mut self${2:, params}) -> Result<${3:()}, Error> {",
+      "    let value = env::value();",
+      "    $0",
+      "    Ok(${4:()})",
+      "}"
+    ],
+    "description": "Payable contract function"
+  },
+  "Accumen Only Owner Function": {
+    "prefix": "acc-owner-only",
+    "body": [
+      "#[call(only_owner)]",
+      "pub fn ${1:function_name}(&mut self${2:, params}) -> Result<${3:()}, Error> {",
+      "    $0",
+      "    Ok(${4:()})",
+      "}"
+    ],
+    "description": "Owner-only contract function"
+  },
+  "Accumen Event": {
+    "prefix": "acc-event",
+    "body": [
+      "#[event]",
+      "pub struct ${1:EventName} {",
+      "    #[indexed]",
+      "    ${2:from}: Address,",
+      "    #[indexed]",
+      "    ${3:to}: Address,",
+      "    ${4:amount}: U256,",
+      "}"
+    ],
+    "description": "Contract event definition"
+  },
+  "Accumen Emit Event": {
+    "prefix": "acc-emit",
+    "body": [
+      "${1:EventName} {",
+      "    ${2:field}: ${3:value},",
+      "}.emit()?;"
+    ],
+    "description": "Emit a contract event"
+  },
+  "Accumen Storage Map": {
+    "prefix": "acc-storage-map",
+    "body": [
+      "const ${1:MAP_PREFIX}: &[u8] = b\"${2:prefix}_\";",
+      "",
+      "// Get from map",
+      "let map = storage::StorageMap::new(${1:MAP_PREFIX});",
+      "let value: ${3:U256} = map.get_decoded(${4:key}.as_bytes()).unwrap_or(${5:U256::ZERO});"
+    ],
+    "description": "Storage map operations"
+  },
+  "Accumen Transfer": {
+    "prefix": "acc-transfer",
+    "body": [
+      "// Transfer tokens",
+      "l0::transfer(&${1:from}, &${2:to}, &${3:amount})?;"
+    ],
+    "description": "L0 token transfer"
+  },
+  "Accumen Require": {
+    "prefix": "acc-require",
+    "body": [
+      "env::require(${1:condition}, Error::${2:InvalidArgument});"
+    ],
+    "description": "Require condition or error"
+  },
+  "Accumen Safe Add": {
+    "prefix": "acc-safe-add",
+    "body": [
+      "let ${1:result} = ${2:a}.checked_add(&${3:b}).ok_or(Error::Overflow)?;"
+    ],
+    "description": "Safe addition with overflow check"
+  },
+  "Accumen Safe Sub": {
+    "prefix": "acc-safe-sub",
+    "body": [
+      "let ${1:result} = ${2:a}.checked_sub(&${3:b}).ok_or(Error::Underflow)?;"
+    ],
+    "description": "Safe subtraction with underflow check"
+  },
+  "Accumen ACU-20 Token": {
+    "prefix": "acc-token-acu20",
+    "body": [
+      "#![no_std]",
+      "",
+      "use accumen_sdk::prelude::*;",
+      "",
+      "const BALANCES: &[u8] = b\"balances_\";",
+      "const ALLOWANCES: &[u8] = b\"allowances_\";",
+      "",
+      "#[contract]",
+      "pub struct Token {",
+      "    name: [u8; 32],",
+      "    name_len: u8,",
+      "    symbol: [u8; 8],",
+      "    symbol_len: u8,",
+      "    decimals: u8,",
+      "    total_supply: U256,",
+      "}",
+      "",
+      "#[event]",
+      "pub struct Transfer {",
+      "    #[indexed]",
+      "    from: Address,",
+      "    #[indexed]",
+      "    to: Address,",
+      "    amount: U256,",
+      "}",
+      "",
+      "#[contract_impl]",
+      "impl Token {",
+      "    #[init]",
+      "    pub fn new(name: &str, symbol: &str, decimals: u8, initial_supply: U256) -> Self {",
+      "        // Implementation",
+      "        todo!()",
+      "    }",
+      "",
+      "    #[view]",
+      "    pub fn balance_of(&self, owner: &Address) -> U256 {",
+      "        let balances = storage::StorageMap::new(BALANCES);",
+      "        balances.get_decoded(owner.as_bytes()).unwrap_or(U256::ZERO)",
+      "    }",
+      "",
+      "    #[call]",
+      "    pub fn transfer(&mut self, to: &Address, amount: U256) -> Result<bool, Error> {",
+      "        // Implementation",
+      "        todo!()",
+      "    }",
+      "}"
+    ],
+    "description": "ACU-20 Token contract template"
+  }
+}
