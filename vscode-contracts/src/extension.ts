@@ -1,7 +1,7 @@
 /**
- * Accumen VS Code Extension
+ * Infrix VS Code Extension
  *
- * Provides development tools for Accumen smart contracts including:
+ * Provides development tools for Infrix smart contracts including:
  * - Contract project initialization
  * - Build and deploy commands
  * - Contract interaction (call, query)
@@ -13,11 +13,11 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { ContractExplorer } from './contractExplorer';
-import { AccumenClient } from './client';
+import { InfrixClient } from './client';
 import { ContractDecorationProvider } from './decorations';
 
 // Extension state
-let client: AccumenClient;
+let client: InfrixClient;
 let contractExplorer: ContractExplorer;
 let decorationProvider: ContractDecorationProvider;
 let statusBarItem: vscode.StatusBarItem;
@@ -27,25 +27,25 @@ let outputChannel: vscode.OutputChannel;
  * Extension activation
  */
 export function activate(context: vscode.ExtensionContext) {
-    console.log('Accumen extension activating...');
+    console.log('Infrix extension activating...');
 
     // Create output channel
-    outputChannel = vscode.window.createOutputChannel('Accumen');
+    outputChannel = vscode.window.createOutputChannel('Infrix');
     context.subscriptions.push(outputChannel);
 
     // Create status bar item
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    statusBarItem.command = 'accumen.setNetwork';
+    statusBarItem.command = 'infrix.setNetwork';
     updateStatusBar();
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
 
     // Initialize client
-    client = new AccumenClient(getConfig());
+    client = new InfrixClient(getConfig());
 
     // Initialize contract explorer
     contractExplorer = new ContractExplorer(context);
-    vscode.window.registerTreeDataProvider('accumenContracts', contractExplorer);
+    vscode.window.registerTreeDataProvider('infrixContracts', contractExplorer);
 
     // Initialize decoration provider
     decorationProvider = new ContractDecorationProvider();
@@ -63,24 +63,24 @@ export function activate(context: vscode.ExtensionContext) {
     // Watch for configuration changes
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration(e => {
-            if (e.affectsConfiguration('accumen')) {
+            if (e.affectsConfiguration('infrix')) {
                 client.updateConfig(getConfig());
                 updateStatusBar();
             }
         })
     );
 
-    // Check for Accumen project
-    checkForAccumenProject();
+    // Check for Infrix project
+    checkForInfrixProject();
 
-    outputChannel.appendLine('Accumen extension activated');
+    outputChannel.appendLine('Infrix extension activated');
 }
 
 /**
  * Extension deactivation
  */
 export function deactivate() {
-    outputChannel.appendLine('Accumen extension deactivating...');
+    outputChannel.appendLine('Infrix extension deactivating...');
 }
 
 /**
@@ -89,7 +89,7 @@ export function deactivate() {
 function registerCommands(context: vscode.ExtensionContext) {
     // Initialize project
     context.subscriptions.push(
-        vscode.commands.registerCommand('accumen.init', async () => {
+        vscode.commands.registerCommand('infrix.init', async () => {
             const templates = ['rust', 'assemblyscript', 'counter', 'token', 'nft'];
             const template = await vscode.window.showQuickPick(templates, {
                 placeHolder: 'Select contract template'
@@ -119,7 +119,7 @@ function registerCommands(context: vscode.ExtensionContext) {
 
     // Build contract
     context.subscriptions.push(
-        vscode.commands.registerCommand('accumen.build', async () => {
+        vscode.commands.registerCommand('infrix.build', async () => {
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
             if (!workspaceFolder) {
                 vscode.window.showErrorMessage('No workspace folder open');
@@ -132,7 +132,7 @@ function registerCommands(context: vscode.ExtensionContext) {
 
     // Deploy contract
     context.subscriptions.push(
-        vscode.commands.registerCommand('accumen.deploy', async (uri?: vscode.Uri) => {
+        vscode.commands.registerCommand('infrix.deploy', async (uri?: vscode.Uri) => {
             let wasmPath: string;
 
             if (uri) {
@@ -162,7 +162,7 @@ function registerCommands(context: vscode.ExtensionContext) {
 
     // Call contract function
     context.subscriptions.push(
-        vscode.commands.registerCommand('accumen.call', async () => {
+        vscode.commands.registerCommand('infrix.call', async () => {
             const contractUrl = await vscode.window.showInputBox({
                 prompt: 'Enter contract URL',
                 placeHolder: 'acc://myadi.acme/mycontract'
@@ -188,7 +188,7 @@ function registerCommands(context: vscode.ExtensionContext) {
 
     // Query contract
     context.subscriptions.push(
-        vscode.commands.registerCommand('accumen.query', async () => {
+        vscode.commands.registerCommand('infrix.query', async () => {
             const contractUrl = await vscode.window.showInputBox({
                 prompt: 'Enter contract URL',
                 placeHolder: 'acc://myadi.acme/mycontract'
@@ -214,7 +214,7 @@ function registerCommands(context: vscode.ExtensionContext) {
 
     // Generate ABI
     context.subscriptions.push(
-        vscode.commands.registerCommand('accumen.generateABI', async () => {
+        vscode.commands.registerCommand('infrix.generateABI', async () => {
             const files = await vscode.window.showOpenDialog({
                 canSelectFiles: true,
                 canSelectFolders: false,
@@ -230,7 +230,7 @@ function registerCommands(context: vscode.ExtensionContext) {
 
     // View events
     context.subscriptions.push(
-        vscode.commands.registerCommand('accumen.viewEvents', async () => {
+        vscode.commands.registerCommand('infrix.viewEvents', async () => {
             const contractUrl = await vscode.window.showInputBox({
                 prompt: 'Enter contract URL',
                 placeHolder: 'acc://myadi.acme/mycontract'
@@ -249,14 +249,14 @@ function registerCommands(context: vscode.ExtensionContext) {
 
     // Set network
     context.subscriptions.push(
-        vscode.commands.registerCommand('accumen.setNetwork', async () => {
+        vscode.commands.registerCommand('infrix.setNetwork', async () => {
             const networks = ['mainnet', 'testnet', 'devnet', 'local'];
             const network = await vscode.window.showQuickPick(networks, {
                 placeHolder: 'Select network'
             });
 
             if (network) {
-                const config = vscode.workspace.getConfiguration('accumen');
+                const config = vscode.workspace.getConfiguration('infrix');
                 await config.update('network', network, vscode.ConfigurationTarget.Global);
                 vscode.window.showInformationMessage(`Network set to ${network}`);
             }
@@ -268,7 +268,7 @@ function registerCommands(context: vscode.ExtensionContext) {
  * Get extension configuration
  */
 function getConfig() {
-    const config = vscode.workspace.getConfiguration('accumen');
+    const config = vscode.workspace.getConfiguration('infrix');
     return {
         network: config.get<string>('network', 'testnet'),
         rpcUrl: config.get<string>('rpcUrl', ''),
@@ -283,7 +283,7 @@ function getConfig() {
  */
 function updateStatusBar() {
     const config = getConfig();
-    statusBarItem.text = `$(cloud) Accumen: ${config.network}`;
+    statusBarItem.text = `$(cloud) Infrix: ${config.network}`;
     statusBarItem.tooltip = `Click to change network\nRPC: ${getRpcUrl(config.network)}`;
 }
 
@@ -309,16 +309,16 @@ function getRpcUrl(network: string): string {
 }
 
 /**
- * Check for Accumen project in workspace
+ * Check for Infrix project in workspace
  */
-function checkForAccumenProject() {
+function checkForInfrixProject() {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) return;
 
     const hasCargoToml = fs.existsSync(path.join(workspaceFolder.uri.fsPath, 'Cargo.toml'));
     const hasAsConfig = fs.existsSync(path.join(workspaceFolder.uri.fsPath, 'asconfig.json'));
 
-    vscode.commands.executeCommand('setContext', 'accumen.hasProject', hasCargoToml || hasAsConfig);
+    vscode.commands.executeCommand('setContext', 'infrix.hasProject', hasCargoToml || hasAsConfig);
 }
 
 /**
@@ -329,11 +329,11 @@ async function initProject(folder: string, name: string, template: string) {
     outputChannel.appendLine(`Initializing ${template} project: ${name}`);
 
     try {
-        const terminal = vscode.window.createTerminal('Accumen');
+        const terminal = vscode.window.createTerminal('Infrix');
         terminal.show();
-        terminal.sendText(`cd "${folder}" && accumen init ${name} --template ${template}`);
+        terminal.sendText(`cd "${folder}" && infrix init ${name} --template ${template}`);
 
-        vscode.window.showInformationMessage(`Created Accumen project: ${name}`);
+        vscode.window.showInformationMessage(`Created Infrix project: ${name}`);
 
         // Open the new project
         const projectPath = path.join(folder, name);
@@ -360,9 +360,9 @@ async function buildContract(projectPath: string) {
         cancellable: false
     }, async () => {
         try {
-            const terminal = vscode.window.createTerminal('Accumen Build');
+            const terminal = vscode.window.createTerminal('Infrix Build');
             terminal.show();
-            terminal.sendText(`cd "${projectPath}" && accumen build --release${config.autoGenerateABI ? ' --abi' : ''}`);
+            terminal.sendText(`cd "${projectPath}" && infrix build --release${config.autoGenerateABI ? ' --abi' : ''}`);
 
             outputChannel.appendLine('Build started');
         } catch (error) {
@@ -456,9 +456,9 @@ async function generateABI(wasmPath: string) {
 
     try {
         const abiPath = wasmPath.replace('.wasm', '.abi.json');
-        const terminal = vscode.window.createTerminal('Accumen');
+        const terminal = vscode.window.createTerminal('Infrix');
         terminal.show();
-        terminal.sendText(`accumen abi generate --wasm "${wasmPath}" --output "${abiPath}"`);
+        terminal.sendText(`infrix abi generate --wasm "${wasmPath}" --output "${abiPath}"`);
 
         vscode.window.showInformationMessage(`ABI generated: ${abiPath}`);
     } catch (error) {

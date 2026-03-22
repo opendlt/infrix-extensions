@@ -183,8 +183,8 @@ export function createHoverProvider(): vscode.HoverProvider {
             if (document.languageId === 'rust') {
                 if (line.includes('#[contract]')) {
                     return new vscode.Hover([
-                        '**Accumen Contract**',
-                        'Marks this struct as an Accumen smart contract.',
+                        '**Infrix Contract**',
+                        'Marks this struct as an Infrix smart contract.',
                         'Generates storage layout and entry points.'
                     ].join('\n\n'));
                 }

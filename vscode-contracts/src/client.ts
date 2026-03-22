@@ -1,13 +1,13 @@
 /**
- * Accumen RPC Client
+ * Infrix RPC Client
  *
- * Client for interacting with the Accumen JSON-RPC API.
+ * Client for interacting with the Infrix JSON-RPC API.
  */
 
 import axios, { AxiosInstance } from 'axios';
 import * as fs from 'fs';
 
-export interface AccumenConfig {
+export interface InfrixConfig {
     network: string;
     rpcUrl: string;
     defaultKeyFile: string;
@@ -36,13 +36,13 @@ export interface ContractEvent {
 }
 
 /**
- * Accumen RPC Client
+ * Infrix RPC Client
  */
-export class AccumenClient {
-    private config: AccumenConfig;
+export class InfrixClient {
+    private config: InfrixConfig;
     private http: AxiosInstance;
 
-    constructor(config: AccumenConfig) {
+    constructor(config: InfrixConfig) {
         this.config = config;
         this.http = this.createHttpClient();
     }
@@ -50,7 +50,7 @@ export class AccumenClient {
     /**
      * Update client configuration
      */
-    updateConfig(config: AccumenConfig) {
+    updateConfig(config: InfrixConfig) {
         this.config = config;
         this.http = this.createHttpClient();
     }

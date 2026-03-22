@@ -1,8 +1,8 @@
 {
-  "Accumen AS Contract": {
+  "Infrix AS Contract": {
     "prefix": "acc-contract",
     "body": [
-      "import { Storage, Env, U256, Address } from \"@accumen/sdk\";",
+      "import { Storage, Env, U256, Address } from \"@infrix/sdk\";",
       "",
       "// Storage keys",
       "const OWNER_KEY = \"owner\";",
@@ -22,9 +22,9 @@
       "    $0",
       "}"
     ],
-    "description": "Create a new Accumen AssemblyScript contract"
+    "description": "Create a new Infrix AssemblyScript contract"
   },
-  "Accumen AS Function": {
+  "Infrix AS Function": {
     "prefix": "acc-function",
     "body": [
       "/**",
@@ -36,7 +36,7 @@
     ],
     "description": "Export a contract function"
   },
-  "Accumen AS Storage Get": {
+  "Infrix AS Storage Get": {
     "prefix": "acc-storage-get",
     "body": [
       "const ${1:value} = Storage.get${2|U256,String|}(\"${3:key}\");",
@@ -46,14 +46,14 @@
     ],
     "description": "Get value from storage"
   },
-  "Accumen AS Storage Set": {
+  "Infrix AS Storage Set": {
     "prefix": "acc-storage-set",
     "body": [
       "Storage.set${1|U256,String|}(\"${2:key}\", ${3:value});"
     ],
     "description": "Set value in storage"
   },
-  "Accumen AS Storage Map": {
+  "Infrix AS Storage Map": {
     "prefix": "acc-storage-map",
     "body": [
       "const ${1:map} = new StorageMap(\"${2:prefix}_\");",
@@ -66,7 +66,7 @@
     ],
     "description": "Create and use a storage map"
   },
-  "Accumen AS Event": {
+  "Infrix AS Event": {
     "prefix": "acc-event",
     "body": [
       "// Emit event",
@@ -79,21 +79,21 @@
     ],
     "description": "Emit a contract event"
   },
-  "Accumen AS Require": {
+  "Infrix AS Require": {
     "prefix": "acc-require",
     "body": [
       "Env.require(${1:condition}, ErrorCode.${2:INVALID_ARGUMENT});"
     ],
     "description": "Require condition or revert"
   },
-  "Accumen AS Assert": {
+  "Infrix AS Assert": {
     "prefix": "acc-assert",
     "body": [
       "Env.assert(${1:condition}, \"${2:error message}\");"
     ],
     "description": "Assert condition with message"
   },
-  "Accumen AS Transfer": {
+  "Infrix AS Transfer": {
     "prefix": "acc-transfer",
     "body": [
       "const success = L0.transfer(${1:from}, ${2:to}, ${3:amount});",
@@ -101,14 +101,14 @@
     ],
     "description": "L0 token transfer"
   },
-  "Accumen AS Safe Math": {
+  "Infrix AS Safe Math": {
     "prefix": "acc-safe-add",
     "body": [
       "const ${1:result} = Utils.safeAdd(${2:a}, ${3:b});"
     ],
     "description": "Safe addition with overflow check"
   },
-  "Accumen AS Caller Check": {
+  "Infrix AS Caller Check": {
     "prefix": "acc-caller-check",
     "body": [
       "const caller = Env.caller();",
@@ -117,7 +117,7 @@
     ],
     "description": "Check caller is owner"
   },
-  "Accumen AS Reentrancy Guard": {
+  "Infrix AS Reentrancy Guard": {
     "prefix": "acc-reentrancy",
     "body": [
       "const guard = new ReentrancyGuard();",
@@ -130,10 +130,10 @@
     ],
     "description": "Reentrancy guard pattern"
   },
-  "Accumen AS Dispatcher": {
+  "Infrix AS Dispatcher": {
     "prefix": "acc-dispatcher",
     "body": [
-      "import { getSelector, getCallData, encodeReturn, encodeError, ErrorCode } from \"@accumen/sdk\";",
+      "import { getSelector, getCallData, encodeReturn, encodeError, ErrorCode } from \"@infrix/sdk\";",
       "",
       "// Function selectors",
       "const TRANSFER_SELECTOR: u32 = 0xa9059cbb;",
@@ -142,7 +142,7 @@
       "/**",
       " * Main dispatcher",
       " */",
-      "export function __accumen_call(input: Uint8Array): Uint8Array {",
+      "export function __infrix_call(input: Uint8Array): Uint8Array {",
       "    const selector = getSelector(input);",
       "    const data = getCallData(input);",
       "",

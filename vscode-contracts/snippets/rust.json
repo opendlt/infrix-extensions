@@ -1,10 +1,10 @@
 {
-  "Accumen Contract": {
+  "Infrix Contract": {
     "prefix": "acc-contract",
     "body": [
       "#![no_std]",
       "",
-      "use accumen_sdk::prelude::*;",
+      "use infrix_sdk::prelude::*;",
       "",
       "/// ${1:ContractName} contract",
       "#[contract]",
@@ -24,9 +24,9 @@
       "    $0",
       "}"
     ],
-    "description": "Create a new Accumen smart contract"
+    "description": "Create a new Infrix smart contract"
   },
-  "Accumen Init Function": {
+  "Infrix Init Function": {
     "prefix": "acc-init",
     "body": [
       "#[init]",
@@ -38,7 +38,7 @@
     ],
     "description": "Contract initialization function"
   },
-  "Accumen Call Function": {
+  "Infrix Call Function": {
     "prefix": "acc-call",
     "body": [
       "#[call]",
@@ -49,7 +49,7 @@
     ],
     "description": "State-modifying contract function"
   },
-  "Accumen View Function": {
+  "Infrix View Function": {
     "prefix": "acc-view",
     "body": [
       "#[view]",
@@ -59,7 +59,7 @@
     ],
     "description": "Read-only contract function"
   },
-  "Accumen Payable Function": {
+  "Infrix Payable Function": {
     "prefix": "acc-payable",
     "body": [
       "#[call(payable)]",
@@ -71,7 +71,7 @@
     ],
     "description": "Payable contract function"
   },
-  "Accumen Only Owner Function": {
+  "Infrix Only Owner Function": {
     "prefix": "acc-owner-only",
     "body": [
       "#[call(only_owner)]",
@@ -82,7 +82,7 @@
     ],
     "description": "Owner-only contract function"
   },
-  "Accumen Event": {
+  "Infrix Event": {
     "prefix": "acc-event",
     "body": [
       "#[event]",
@@ -96,7 +96,7 @@
     ],
     "description": "Contract event definition"
   },
-  "Accumen Emit Event": {
+  "Infrix Emit Event": {
     "prefix": "acc-emit",
     "body": [
       "${1:EventName} {",
@@ -105,7 +105,7 @@
     ],
     "description": "Emit a contract event"
   },
-  "Accumen Storage Map": {
+  "Infrix Storage Map": {
     "prefix": "acc-storage-map",
     "body": [
       "const ${1:MAP_PREFIX}: &[u8] = b\"${2:prefix}_\";",
@@ -116,7 +116,7 @@
     ],
     "description": "Storage map operations"
   },
-  "Accumen Transfer": {
+  "Infrix Transfer": {
     "prefix": "acc-transfer",
     "body": [
       "// Transfer tokens",
@@ -124,33 +124,33 @@
     ],
     "description": "L0 token transfer"
   },
-  "Accumen Require": {
+  "Infrix Require": {
     "prefix": "acc-require",
     "body": [
       "env::require(${1:condition}, Error::${2:InvalidArgument});"
     ],
     "description": "Require condition or error"
   },
-  "Accumen Safe Add": {
+  "Infrix Safe Add": {
     "prefix": "acc-safe-add",
     "body": [
       "let ${1:result} = ${2:a}.checked_add(&${3:b}).ok_or(Error::Overflow)?;"
     ],
     "description": "Safe addition with overflow check"
   },
-  "Accumen Safe Sub": {
+  "Infrix Safe Sub": {
     "prefix": "acc-safe-sub",
     "body": [
       "let ${1:result} = ${2:a}.checked_sub(&${3:b}).ok_or(Error::Underflow)?;"
     ],
     "description": "Safe subtraction with underflow check"
   },
-  "Accumen ACU-20 Token": {
+  "Infrix ACU-20 Token": {
     "prefix": "acc-token-acu20",
     "body": [
       "#![no_std]",
       "",
-      "use accumen_sdk::prelude::*;",
+      "use infrix_sdk::prelude::*;",
       "",
       "const BALANCES: &[u8] = b\"balances_\";",
       "const ALLOWANCES: &[u8] = b\"allowances_\";",

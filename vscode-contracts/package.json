@@ -1,7 +1,7 @@
 {
-  "name": "accumen-vscode",
-  "displayName": "Accumen Smart Contracts",
-  "description": "VS Code extension for developing Accumen smart contracts",
+  "name": "infrix-vscode",
+  "displayName": "Infrix Smart Contracts",
+  "description": "VS Code extension for developing Infrix smart contracts",
   "version": "0.1.0",
   "publisher": "accumulate-network",
   "engines": {
@@ -23,7 +23,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/AccumulateNetwork/accumen"
+    "url": "https://github.com/AccumulateNetwork/infrix"
   },
   "license": "MIT",
   "activationEvents": [
@@ -36,42 +36,42 @@
   "contributes": {
     "commands": [
       {
-        "command": "accumen.init",
-        "title": "Accumen: Initialize New Contract Project"
+        "command": "infrix.init",
+        "title": "Infrix: Initialize New Contract Project"
       },
       {
-        "command": "accumen.build",
-        "title": "Accumen: Build Contract"
+        "command": "infrix.build",
+        "title": "Infrix: Build Contract"
       },
       {
-        "command": "accumen.deploy",
-        "title": "Accumen: Deploy Contract"
+        "command": "infrix.deploy",
+        "title": "Infrix: Deploy Contract"
       },
       {
-        "command": "accumen.call",
-        "title": "Accumen: Call Contract Function"
+        "command": "infrix.call",
+        "title": "Infrix: Call Contract Function"
       },
       {
-        "command": "accumen.query",
-        "title": "Accumen: Query Contract State"
+        "command": "infrix.query",
+        "title": "Infrix: Query Contract State"
       },
       {
-        "command": "accumen.generateABI",
-        "title": "Accumen: Generate ABI"
+        "command": "infrix.generateABI",
+        "title": "Infrix: Generate ABI"
       },
       {
-        "command": "accumen.viewEvents",
-        "title": "Accumen: View Contract Events"
+        "command": "infrix.viewEvents",
+        "title": "Infrix: View Contract Events"
       },
       {
-        "command": "accumen.setNetwork",
-        "title": "Accumen: Set Network"
+        "command": "infrix.setNetwork",
+        "title": "Infrix: Set Network"
       }
     ],
     "configuration": {
-      "title": "Accumen",
+      "title": "Infrix",
       "properties": {
-        "accumen.network": {
+        "infrix.network": {
           "type": "string",
           "default": "testnet",
           "enum": [
@@ -82,22 +82,22 @@
           ],
           "description": "Default network for contract operations"
         },
-        "accumen.rpcUrl": {
+        "infrix.rpcUrl": {
           "type": "string",
           "default": "",
           "description": "Custom RPC URL (overrides network default)"
         },
-        "accumen.defaultKeyFile": {
+        "infrix.defaultKeyFile": {
           "type": "string",
           "default": "",
           "description": "Path to default signing key file"
         },
-        "accumen.autoGenerateABI": {
+        "infrix.autoGenerateABI": {
           "type": "boolean",
           "default": true,
           "description": "Automatically generate ABI after build"
         },
-        "accumen.showDecorations": {
+        "infrix.showDecorations": {
           "type": "boolean",
           "default": true,
           "description": "Show inline decorations for contract functions"
@@ -106,9 +106,9 @@
     },
     "languages": [
       {
-        "id": "accumen-abi",
+        "id": "infrix-abi",
         "aliases": [
-          "Accumen ABI",
+          "Infrix ABI",
           "abi"
         ],
         "extensions": [
@@ -119,7 +119,7 @@
     ],
     "grammars": [
       {
-        "language": "accumen-abi",
+        "language": "infrix-abi",
         "scopeName": "source.json.abi",
         "path": "./syntaxes/abi.tmLanguage.json"
       }
@@ -138,43 +138,43 @@
       "editor/context": [
         {
           "when": "resourceExtname == .rs || resourceExtname == .ts",
-          "command": "accumen.build",
-          "group": "accumen@1"
+          "command": "infrix.build",
+          "group": "infrix@1"
         },
         {
           "when": "resourceExtname == .wasm",
-          "command": "accumen.deploy",
-          "group": "accumen@1"
+          "command": "infrix.deploy",
+          "group": "infrix@1"
         }
       ],
       "explorer/context": [
         {
           "when": "resourceExtname == .wasm",
-          "command": "accumen.deploy",
-          "group": "accumen@1"
+          "command": "infrix.deploy",
+          "group": "infrix@1"
         },
         {
           "when": "explorerResourceIsFolder",
-          "command": "accumen.init",
-          "group": "accumen@1"
+          "command": "infrix.init",
+          "group": "infrix@1"
         }
       ]
     },
     "views": {
       "explorer": [
         {
-          "id": "accumenContracts",
-          "name": "Accumen Contracts",
-          "when": "accumen.hasProject"
+          "id": "infrixContracts",
+          "name": "Infrix Contracts",
+          "when": "infrix.hasProject"
         }
       ]
     },
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "accumen",
-          "title": "Accumen",
-          "icon": "resources/accumen-icon.svg"
+          "id": "infrix",
+          "title": "Infrix",
+          "icon": "resources/infrix-icon.svg"
         }
       ]
     }
