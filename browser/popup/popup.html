@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Infrix Wallet</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0f1318;
+  --surface: #1a1f28;
+  --border: #2a3040;
+  --text: #e8ecf0;
+  --text-dim: #8892a0;
+  --accent: #6366f1;
+  --accent-light: #818cf8;
+  --success: #10b981;
+  --error: #ef4444;
+  --font: system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+body { font-family: var(--font); background: var(--bg); color: var(--text); width: 360px; min-height: 500px; }
+.header { padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.logo { font-weight: 800; font-size: 1.1rem; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); display: inline-block; }
+.status-dot.disconnected { background: var(--error); }
+.section { padding: 16px; }
+.section-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 8px; }
+.adi-display { font-family: var(--mono); font-size: 0.85rem; color: var(--accent-light); padding: 8px 12px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); word-break: break-all; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+.card-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
+.card-value { font-family: var(--mono); font-size: 0.8rem; color: var(--text-dim); }
+.key-list { display: flex; flex-direction: column; gap: 6px; }
+.key-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--surface); border-radius: 6px; border: 1px solid var(--border); font-size: 0.78rem; }
+.key-hex { font-family: var(--mono); color: var(--accent-light); }
+.btn { padding: 8px 16px; border-radius: 6px; border: none; font-weight: 600; font-size: 0.8rem; cursor: pointer; transition: opacity 0.2s; }
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { opacity: 0.9; }
+.btn-danger { background: var(--error); color: white; }
+.btn-sm { padding: 4px 10px; font-size: 0.7rem; }
+.btn-row { display: flex; gap: 8px; margin-top: 12px; }
+.empty { text-align: center; color: var(--text-dim); padding: 20px; font-size: 0.85rem; }
+.sessions-list { display: flex; flex-direction: column; gap: 6px; }
+.session-item { padding: 8px; background: var(--surface); border-radius: 6px; border: 1px solid var(--border); font-size: 0.75rem; }
+.session-scope { color: var(--text-dim); font-family: var(--mono); margin-top: 4px; }
+.pending-list { display: flex; flex-direction: column; gap: 8px; }
+.pending-item { padding: 12px; background: var(--surface); border: 1px solid var(--accent); border-radius: 8px; }
+.pending-origin { font-size: 0.7rem; color: var(--text-dim); margin-bottom: 4px; }
+.pending-action { font-weight: 600; margin-bottom: 8px; }
+input[type="text"] { width: 100%; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 0.82rem; outline: none; }
+input:focus { border-color: var(--accent); }
+.footer { padding: 12px 16px; border-top: 1px solid var(--border); font-size: 0.65rem; color: var(--text-dim); text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="logo">INFRIX</span>
+  <span><span class="status-dot" id="statusDot"></span> <span id="statusLabel" style="font-size:0.75rem;color:var(--text-dim)">Disconnected</span></span>
+</div>
+
+<!-- ADI Section -->
+<div class="section">
+  <div class="section-title">Account</div>
+  <div class="adi-display" id="adiDisplay">No account configured</div>
+  <div class="btn-row">
+    <input type="text" id="adiInput" placeholder="acc://your-name.acme">
+    <button class="btn btn-primary" id="setAdiBtn">Set ADI</button>
+  </div>
+</div>
+
+<!-- Keys Section -->
+<div class="section">
+  <div class="section-title">Keys</div>
+  <div class="key-list" id="keyList">
+    <div class="empty">No keys generated</div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-primary" id="generateKeyBtn">Generate Key</button>
+  </div>
+</div>
+
+<!-- Sessions Section -->
+<div class="section">
+  <div class="section-title">Session Keys</div>
+  <div class="sessions-list" id="sessionList">
+    <div class="empty">No active sessions</div>
+  </div>
+</div>
+
+<!-- Pending Approvals -->
+<div class="section" id="pendingSection" style="display:none">
+  <div class="section-title">Pending Approvals</div>
+  <div class="pending-list" id="pendingList"></div>
+</div>
+
+<div class="footer">
+  Infrix Wallet v0.1.0 &middot; Network: Local Devnet
+</div>
+
+<script src="popup.js"></script>
+</body>
+</html>
