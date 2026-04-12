@@ -96,16 +96,24 @@ async function handleMessage(message, sender) {
       };
     }
 
-    // ---- Contract Interaction (RPC Proxy) ----
-    case 'wallet.deploy':
-    case 'wallet.call':
-    case 'wallet.query': {
-      const rpcMethod = {
-        'wallet.deploy': 'contract.deploy',
-        'wallet.call': 'contract.call',
-        'wallet.query': 'contract.query',
-      }[message.type];
-      return rpcProxy(rpcMethod, message.params);
+    // ---- Governance Submission (RPC Proxy) ----
+    // State-changing actions (including contract deploy/call) flow through
+    // the governance spine as intents; there is no raw contract proxy.
+    case 'wallet.submitIntent': {
+      const params = {
+        userAddress: walletState.adi,
+        goal: message.goal,
+        ...(message.opts || {}),
+      };
+      return rpcProxy('intent.submit', params);
+    }
+
+    case 'wallet.approveIntent': {
+      return rpcProxy('approval.submit', {
+        targetId: message.intentId,
+        planHash: message.planHash,
+        identity: walletState.adi,
+      });
     }
 
     // ---- Session Keys ----
@@ -168,9 +176,10 @@ async function handleMessage(message, sender) {
       const req = walletState.pendingRequests.get(message.requestId);
       if (!req) return { error: 'Request not found' };
       walletState.pendingRequests.delete(message.requestId);
-      // Execute the approved request.
-      if (req.type === 'call') {
-        return rpcProxy('contract.call', req.params);
+      // Execute the approved request. Only governance-submitted intents
+      // are permitted; raw contract calls have no direct proxy.
+      if (req.type === 'submitIntent') {
+        return rpcProxy('intent.submit', req.params);
       }
       return { approved: true };
     }

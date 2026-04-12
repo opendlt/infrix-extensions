@@ -38,30 +38,21 @@
     },
 
     /**
-     * Deploy a contract.
+     * Submit a governed intent. State-changing contract deployment or
+     * invocation is expressed as an intent with an appropriate goal type
+     * (e.g. CONTRACT_DEPLOY, CONTRACT_CALL, OBJECT_CREATE) and flows
+     * through the canonical spine. The extension does not expose direct
+     * contract mutation paths.
      */
-    deploy: function(params) {
-      return sendToBackground({ type: 'wallet.deploy', params });
+    submitIntent: function(goal, opts) {
+      return sendToBackground({ type: 'wallet.submitIntent', goal, opts: opts || {} });
     },
 
     /**
-     * Call a contract function (state-changing).
+     * Sign an ApprovalEnvelope for a plan hash.
      */
-    call: function(contractUrl, fn, args) {
-      return sendToBackground({
-        type: 'wallet.call',
-        params: { url: contractUrl, function: fn, args: args || [], gasLimit: 500000 },
-      });
-    },
-
-    /**
-     * Query a contract function (read-only).
-     */
-    query: function(contractUrl, fn, args) {
-      return sendToBackground({
-        type: 'wallet.query',
-        params: { url: contractUrl, function: fn, args: args || [] },
-      });
+    approveIntent: function(intentId, planHash) {
+      return sendToBackground({ type: 'wallet.approveIntent', intentId, planHash });
     },
 
     /**
