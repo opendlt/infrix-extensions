@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Infrix Wallet",
   "version": "0.1.0",
-  "description": "ADI-native smart wallet for the Infrix platform. Manage keys, sign transactions, and interact with smart contracts.",
+  "description": "ADI-native smart wallet for the Infrix governance-first platform. Manage keys, approve governed plans, submit intents through the canonical spine, and verify evidence.",
   "permissions": ["storage", "activeTab"],
   "host_permissions": ["http://localhost:*/*"],
   "action": {
