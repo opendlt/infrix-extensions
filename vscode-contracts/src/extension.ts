@@ -339,7 +339,7 @@ async function initProject(folder: string, name: string, template: string) {
     try {
         const terminal = vscode.window.createTerminal('Infrix');
         terminal.show();
-        terminal.sendText(`cd "${folder}" && infrix init ${name} --template ${template}`);
+        terminal.sendText(`cd "${folder}" && infrix contract init ${name} --template ${template}`);
 
         vscode.window.showInformationMessage(`Created Infrix project: ${name}`);
 
@@ -370,7 +370,7 @@ async function buildContract(projectPath: string) {
         try {
             const terminal = vscode.window.createTerminal('Infrix Build');
             terminal.show();
-            terminal.sendText(`cd "${projectPath}" && infrix build --release${config.autoGenerateABI ? ' --abi' : ''}`);
+            terminal.sendText(`cd "${projectPath}" && infrix contract build --release${config.autoGenerateABI ? ' --abi' : ''}`);
 
             outputChannel.appendLine('Build started');
         } catch (error) {
@@ -466,7 +466,7 @@ async function generateABI(wasmPath: string) {
         const abiPath = wasmPath.replace('.wasm', '.abi.json');
         const terminal = vscode.window.createTerminal('Infrix');
         terminal.show();
-        terminal.sendText(`infrix abi generate --wasm "${wasmPath}" --output "${abiPath}"`);
+        terminal.sendText(`infrix contract abi generate --wasm "${wasmPath}" --output "${abiPath}"`);
 
         vscode.window.showInformationMessage(`ABI generated: ${abiPath}`);
     } catch (error) {
