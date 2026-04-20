@@ -61,7 +61,12 @@ class DebugPanel {
     }
 
     async fetchDebugAnalysis(contractUrl, fn, args) {
-        const resp = await fetch(`${this.rpcUrl}/v3/debug/analyze`, {
+        // Gap 15 closure: the legacy debug-analyze endpoint was deleted;
+        // the canonical governance-first successor is /v4/debug/analyze. Wire shape
+        // unchanged — {contractUrl, function, args} in; {riskLevel,
+        // gasEstimate, willRevert, warnings, suggestions} out.
+        // See pkg/debug/api.go::HandleAnalyze.
+        const resp = await fetch(`${this.rpcUrl}/v4/debug/analyze`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contractUrl, function: fn, args }),

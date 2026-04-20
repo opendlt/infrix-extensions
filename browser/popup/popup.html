@@ -98,6 +98,14 @@ input:focus { border-color: var(--accent); }
   Infrix Wallet v0.1.0 &middot; Network: Local Devnet
 </div>
 
+<!-- Gap 15 closure: widgets for the pending-approval preview feature.
+     Both call canonical v4 governance endpoints (/v4/ghost/preview and
+     /v4/debug/analyze) — see pkg/ghost/api/server.go::handlePreview and
+     pkg/debug/api.go::HandleAnalyze. Loading them here makes the
+     CinemaWidget / DebugPanel classes globally available to popup.js
+     for rendering under each pending request. -->
+<script src="../cinema-widget.js"></script>
+<script src="../debug-panel.js"></script>
 <script src="popup.js"></script>
 </body>
 </html>

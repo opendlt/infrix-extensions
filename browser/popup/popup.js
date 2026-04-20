@@ -138,6 +138,11 @@ async function refreshPending() {
     html += '<div class="pending-item">';
     html += '<div class="pending-origin">' + (req.origin || 'Unknown origin') + '</div>';
     html += '<div class="pending-action">' + req.type + '</div>';
+    // Gap 15 closure: slot the preview + analyze widgets into each
+    // pending item. We render after innerHTML is set, so we need unique
+    // container IDs per request.
+    html += '<div class="cinema-widget-slot" id="cinema-slot-' + req.id + '"></div>';
+    html += '<div class="debug-panel-slot" id="debug-slot-' + req.id + '"></div>';
     html += '<div class="btn-row">';
     html += '<button class="btn btn-primary btn-sm" onclick="approveRequest(' + req.id + ')">Approve</button>';
     html += '<button class="btn btn-danger btn-sm" onclick="rejectRequest(' + req.id + ')">Reject</button>';
@@ -145,6 +150,33 @@ async function refreshPending() {
     html += '</div>';
   }
   list.innerHTML = html;
+
+  // Wire the preview + analyze widgets for any request that carries
+  // enough context to invoke them. Pending-request payload lives under
+  // req.params (background.js:162 preserves the raw approval envelope
+  // verbatim); UI code projects what it needs rather than duplicating
+  // fields onto the top-level request. Governance-first discipline:
+  // the opaque params envelope stays authoritative, the UI reads from
+  // it. The wallet RPC URL comes from the wallet state; fall back to
+  // the well-known devnet default so the widget can at least attempt
+  // the request.
+  const rpcUrl = (result.rpcUrl || 'http://localhost:8080').replace(/\/+$/, '');
+  for (const req of result.requests) {
+    const contractUrl = req.params && req.params.contractUrl;
+    const fn = req.params && req.params.function;
+    const args = (req.params && req.params.args) || null;
+    if (!contractUrl || !fn) continue;
+    const cinemaSlot = document.getElementById('cinema-slot-' + req.id);
+    const debugSlot = document.getElementById('debug-slot-' + req.id);
+    if (cinemaSlot && typeof window.CinemaWidget === 'function') {
+      const cw = new window.CinemaWidget(cinemaSlot, rpcUrl);
+      cw.showPreview(contractUrl, fn, args);
+    }
+    if (debugSlot && typeof window.DebugPanel === 'function') {
+      const dp = new window.DebugPanel(debugSlot, rpcUrl);
+      dp.showForTransaction(contractUrl, fn, args);
+    }
+  }
 }
 
 async function approveRequest(id) {

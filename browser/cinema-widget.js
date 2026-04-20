@@ -48,7 +48,12 @@ class CinemaWidget {
     }
 
     async fetchGhostPreview(contractUrl, fn, args) {
-        const resp = await fetch(`${this.rpcUrl}/v3/ghost/preview`, {
+        // Gap 15 closure: the legacy ghost-preview endpoint was deleted;
+        // the canonical governance-first successor is /v4/ghost/preview. Wire shape
+        // is unchanged — contractUrl / function / args go in, a
+        // projected ghost receipt (success / gasUsed / stateChanges /
+        // events / returnData) comes back. See pkg/ghost/api/server.go.
+        const resp = await fetch(`${this.rpcUrl}/v4/ghost/preview`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contractUrl, function: fn, args }),
