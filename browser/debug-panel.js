@@ -9,9 +9,15 @@
  */
 class DebugPanel {
     constructor(container, rpcUrl, disclosure) {
+        // Gap 15 §15 fourteenth-pass closure: fail-loud on incomplete
+        // disclosure. Matches CinemaWidget's discipline — the Gap 12
+        // gate on /v4/debug/analyze rejects partial submissions 400.
+        if (!disclosure || !disclosure.actor || !disclosure.purpose || !disclosure.workflowInstance) {
+            throw new Error('DebugPanel requires a complete disclosure context {actor, purpose, workflowInstance} — the Gap 12 gate on /v4/debug/analyze rejects partial submissions with 400.');
+        }
         this.container = container;
         this.rpcUrl = rpcUrl;
-        this.disclosure = disclosure || {};
+        this.disclosure = disclosure;
     }
 
     /** Show debug info for a pending transaction. */
@@ -74,12 +80,14 @@ class DebugPanel {
         // suggestions, governance } out. See pkg/debug/api.go.
         //
         // Gap 12 seventh-pass gate: three disclosure headers are
-        // mandatory. Without them the endpoint returns 400. The popup
-        // builds this context from wallet state before construction.
-        const headers = { 'Content-Type': 'application/json' };
-        if (this.disclosure.actor) headers['X-Actor'] = this.disclosure.actor;
-        if (this.disclosure.purpose) headers['X-Purpose'] = this.disclosure.purpose;
-        if (this.disclosure.workflowInstance) headers['X-Workflow-Instance'] = this.disclosure.workflowInstance;
+        // mandatory. Unconditional assignment — the constructor has
+        // already rejected any incomplete disclosure context.
+        const headers = {
+            'Content-Type': 'application/json',
+            'X-Actor': this.disclosure.actor,
+            'X-Purpose': this.disclosure.purpose,
+            'X-Workflow-Instance': this.disclosure.workflowInstance,
+        };
         const resp = await fetch(`${this.rpcUrl}/v4/debug/analyze`, {
             method: 'POST',
             headers,

@@ -12,9 +12,19 @@
  */
 class CinemaWidget {
     constructor(container, rpcUrl, disclosure) {
+        // Gap 15 §15 fourteenth-pass closure: fail-loud on incomplete
+        // disclosure. The Gap 12 gate on /v4/ghost/preview rejects
+        // with 400 if any of actor / purpose / workflowInstance is
+        // missing; the pre-14 code silently caught that 400 and
+        // rendered "Preview unavailable", hiding the real cause.
+        // Refusing to construct on partial disclosure makes the
+        // upstream caller's mistake visible immediately.
+        if (!disclosure || !disclosure.actor || !disclosure.purpose || !disclosure.workflowInstance) {
+            throw new Error('CinemaWidget requires a complete disclosure context {actor, purpose, workflowInstance} — the Gap 12 gate on /v4/ghost/preview rejects partial submissions with 400.');
+        }
         this.container = container;
         this.rpcUrl = rpcUrl;
-        this.disclosure = disclosure || {};
+        this.disclosure = disclosure;
         this.canvas = null;
     }
 
@@ -63,12 +73,15 @@ class CinemaWidget {
         // in, projected ghost receipt out. See pkg/ghost/api/server.go.
         //
         // Gap 12 seventh-pass gate: three disclosure headers are
-        // mandatory. Without them the endpoint returns 400. The popup
-        // builds this context from wallet state before construction.
-        const headers = { 'Content-Type': 'application/json' };
-        if (this.disclosure.actor) headers['X-Actor'] = this.disclosure.actor;
-        if (this.disclosure.purpose) headers['X-Purpose'] = this.disclosure.purpose;
-        if (this.disclosure.workflowInstance) headers['X-Workflow-Instance'] = this.disclosure.workflowInstance;
+        // mandatory. Unconditional assignment — the constructor has
+        // already rejected any incomplete disclosure context, so
+        // every field is guaranteed present and non-empty.
+        const headers = {
+            'Content-Type': 'application/json',
+            'X-Actor': this.disclosure.actor,
+            'X-Purpose': this.disclosure.purpose,
+            'X-Workflow-Instance': this.disclosure.workflowInstance,
+        };
         const resp = await fetch(`${this.rpcUrl}/v4/ghost/preview`, {
             method: 'POST',
             headers,
