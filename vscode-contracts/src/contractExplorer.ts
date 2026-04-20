@@ -153,7 +153,7 @@ export class ContractExplorer implements vscode.TreeDataProvider<ContractTreeIte
                 'contract'
             );
             buildItem.command = {
-                command: 'infrix.build',
+                command: 'infrix.contract.build',
                 title: 'Build Contract'
             };
             items.push(buildItem);
@@ -196,7 +196,7 @@ export class ContractExplorer implements vscode.TreeDataProvider<ContractTreeIte
 
                 // Add command to call function
                 item.command = {
-                    command: func.mutability === 'view' ? 'infrix.query' : 'infrix.call',
+                    command: func.mutability === 'view' ? 'infrix.contract.query' : 'infrix.intent.contractCall',
                     title: func.mutability === 'view' ? 'Query' : 'Call',
                     arguments: [func.name]
                 };

@@ -94,7 +94,7 @@ export function deactivate() {
 function registerCommands(context: vscode.ExtensionContext) {
     // Initialize project
     context.subscriptions.push(
-        vscode.commands.registerCommand('infrix.init', async () => {
+        vscode.commands.registerCommand('infrix.contract.init', async () => {
             const templates = ['rust', 'assemblyscript', 'counter', 'token', 'nft'];
             const template = await vscode.window.showQuickPick(templates, {
                 placeHolder: 'Select contract template'
@@ -124,7 +124,7 @@ function registerCommands(context: vscode.ExtensionContext) {
 
     // Build contract
     context.subscriptions.push(
-        vscode.commands.registerCommand('infrix.build', async () => {
+        vscode.commands.registerCommand('infrix.contract.build', async () => {
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
             if (!workspaceFolder) {
                 vscode.window.showErrorMessage('No workspace folder open');
@@ -137,7 +137,7 @@ function registerCommands(context: vscode.ExtensionContext) {
 
     // Deploy contract
     context.subscriptions.push(
-        vscode.commands.registerCommand('infrix.deploy', async (uri?: vscode.Uri) => {
+        vscode.commands.registerCommand('infrix.intent.contractDeploy', async (uri?: vscode.Uri) => {
             let wasmPath: string;
 
             if (uri) {
@@ -167,7 +167,7 @@ function registerCommands(context: vscode.ExtensionContext) {
 
     // Call contract function
     context.subscriptions.push(
-        vscode.commands.registerCommand('infrix.call', async () => {
+        vscode.commands.registerCommand('infrix.intent.contractCall', async () => {
             const contractUrl = await vscode.window.showInputBox({
                 prompt: 'Enter contract URL',
                 placeHolder: 'acc://myadi.acme/mycontract'
@@ -193,7 +193,7 @@ function registerCommands(context: vscode.ExtensionContext) {
 
     // Query contract
     context.subscriptions.push(
-        vscode.commands.registerCommand('infrix.query', async () => {
+        vscode.commands.registerCommand('infrix.contract.query', async () => {
             const contractUrl = await vscode.window.showInputBox({
                 prompt: 'Enter contract URL',
                 placeHolder: 'acc://myadi.acme/mycontract'
@@ -219,7 +219,7 @@ function registerCommands(context: vscode.ExtensionContext) {
 
     // Generate ABI
     context.subscriptions.push(
-        vscode.commands.registerCommand('infrix.generateABI', async () => {
+        vscode.commands.registerCommand('infrix.contract.generateABI', async () => {
             const files = await vscode.window.showOpenDialog({
                 canSelectFiles: true,
                 canSelectFolders: false,
@@ -235,7 +235,7 @@ function registerCommands(context: vscode.ExtensionContext) {
 
     // View events
     context.subscriptions.push(
-        vscode.commands.registerCommand('infrix.viewEvents', async () => {
+        vscode.commands.registerCommand('infrix.contract.events', async () => {
             const contractUrl = await vscode.window.showInputBox({
                 prompt: 'Enter contract URL',
                 placeHolder: 'acc://myadi.acme/mycontract'

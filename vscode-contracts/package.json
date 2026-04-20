@@ -1,7 +1,7 @@
 {
   "name": "infrix-vscode",
   "displayName": "Infrix Smart Contracts",
-  "description": "VS Code extension for developing Infrix smart contracts",
+  "description": "VS Code extension for governance-first Infrix smart-contract development (intent submission, plan inspection, governed deployment, evidence verification)",
   "version": "0.1.0",
   "publisher": "accumulate-network",
   "engines": {
@@ -36,32 +36,32 @@
   "contributes": {
     "commands": [
       {
-        "command": "infrix.init",
-        "title": "Infrix: Initialize New Contract Project"
+        "command": "infrix.contract.init",
+        "title": "Infrix: Initialize New Contract Project (build-time)"
       },
       {
-        "command": "infrix.build",
-        "title": "Infrix: Build Contract"
+        "command": "infrix.contract.build",
+        "title": "Infrix: Build Contract (build-time)"
       },
       {
-        "command": "infrix.deploy",
-        "title": "Infrix: Deploy Contract"
+        "command": "infrix.intent.contractDeploy",
+        "title": "Infrix: Submit CONTRACT_DEPLOY Intent"
       },
       {
-        "command": "infrix.call",
-        "title": "Infrix: Call Contract Function"
+        "command": "infrix.intent.contractCall",
+        "title": "Infrix: Submit CONTRACT_CALL Intent"
       },
       {
-        "command": "infrix.query",
-        "title": "Infrix: Query Contract State"
+        "command": "infrix.contract.query",
+        "title": "Infrix: Query Contract (read-only)"
       },
       {
-        "command": "infrix.generateABI",
-        "title": "Infrix: Generate ABI"
+        "command": "infrix.contract.generateABI",
+        "title": "Infrix: Generate ABI (build-time)"
       },
       {
-        "command": "infrix.viewEvents",
-        "title": "Infrix: View Contract Events"
+        "command": "infrix.contract.events",
+        "title": "Infrix: View Contract Events (read-only)"
       },
       {
         "command": "infrix.setNetwork",
@@ -138,24 +138,24 @@
       "editor/context": [
         {
           "when": "resourceExtname == .rs || resourceExtname == .ts",
-          "command": "infrix.build",
+          "command": "infrix.contract.build",
           "group": "infrix@1"
         },
         {
           "when": "resourceExtname == .wasm",
-          "command": "infrix.deploy",
+          "command": "infrix.intent.contractDeploy",
           "group": "infrix@1"
         }
       ],
       "explorer/context": [
         {
           "when": "resourceExtname == .wasm",
-          "command": "infrix.deploy",
+          "command": "infrix.intent.contractDeploy",
           "group": "infrix@1"
         },
         {
           "when": "explorerResourceIsFolder",
-          "command": "infrix.init",
+          "command": "infrix.contract.init",
           "group": "infrix@1"
         }
       ]
