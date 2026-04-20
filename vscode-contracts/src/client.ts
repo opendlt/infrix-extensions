@@ -110,7 +110,13 @@ export class InfrixClient {
     }
 
     /**
-     * Deploy a contract
+     * Deploy a contract through the canonical governed.submit seam.
+     *
+     * Gap 15 sixth-pass §15 Phase R closure: every contract deployment
+     * flows through the Intent->Plan->Approval->Execution->Outcome->
+     * Evidence spine via governed.submit with goalType: 'CONTRACT_DEPLOY'.
+     * The legacy contract.deploy RPC method was deleted in Phase H; this
+     * client now mirrors the canonical pkg/wallet/wallet.go::Deploy shape.
      */
     async deploy(wasmPath: string, contractUrl: string): Promise<DeployResult> {
         // Read WASM file
@@ -121,35 +127,53 @@ export class InfrixClient {
             throw new Error('Invalid WASM file');
         }
 
-        const result = await this.rpc('contract.deploy', {
-            url: contractUrl,
-            bytecode: wasmBytes.toString('hex'),
-            gasLimit: 500000
+        const result = await this.rpc('governed.submit', {
+            goalType: 'CONTRACT_DEPLOY',
+            actor: contractUrl,
+            purpose: 'operational',
+            workflowInstance: 'vscode-deploy',
+            customParams: {
+                authority: contractUrl,
+                bytecode: wasmBytes.toString('hex'),
+                gasLimit: 500000
+            }
         });
 
         return {
-            txHash: result.txHash
+            txHash: result?.intent?.id ?? ''
         };
     }
 
     /**
-     * Call a contract function
+     * Call a contract function through the canonical governed.submit seam.
+     *
+     * Gap 15 sixth-pass §15 Phase R closure: contract calls flow through
+     * the Intent->Plan->Approval->Execution->Outcome->Evidence spine via
+     * governed.submit with goalType: 'CONTRACT_CALL'. The legacy
+     * contract.call RPC method was deleted in Phase H; this client now
+     * mirrors the canonical pkg/wallet/wallet.go::Call shape.
      */
     async call(
         contractUrl: string,
         functionName: string,
         args: any[]
     ): Promise<CallResult> {
-        const result = await this.rpc('contract.call', {
-            url: contractUrl,
-            function: functionName,
-            args,
-            gasLimit: 200000
+        const result = await this.rpc('governed.submit', {
+            goalType: 'CONTRACT_CALL',
+            actor: contractUrl,
+            purpose: 'operational',
+            workflowInstance: 'vscode-call',
+            customParams: {
+                contract: contractUrl,
+                function: functionName,
+                args,
+                gasLimit: 200000
+            }
         });
 
         return {
-            txHash: result.txHash,
-            returnData: result.returnData
+            txHash: result?.intent?.id ?? '',
+            returnData: result?.receipt?.returnData
         };
     }
 
