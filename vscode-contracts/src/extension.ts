@@ -1,12 +1,17 @@
 /**
  * Infrix VS Code Extension
  *
- * Provides development tools for Infrix smart contracts including:
+ * Provides development tools for Infrix governed contracts including:
  * - Contract project initialization
- * - Build and deploy commands
- * - Contract interaction (call, query)
- * - Event monitoring
+ * - Build + governance-first deploy commands (deployment is submitted
+ *   as a CONTRACT_DEPLOY intent through governed.submit; the same is
+ *   true for CONTRACT_CALL and CONTRACT_UPGRADE)
+ * - Read-only contract inspection (query, inspect, schema)
+ * - Event history (events.history)
  * - IntelliSense and code snippets
+ *
+ * State-changing operations never bypass the canonical spine:
+ *   Intent -> Plan -> Approval -> Execution -> Outcome -> Evidence -> Anchor
  */
 
 import * as vscode from 'vscode';
@@ -294,17 +299,20 @@ function getRpcUrl(network: string): string {
     const config = getConfig();
     if (config.rpcUrl) return config.rpcUrl;
 
+    // Gap 15 sixteenth-pass closure (commit 4/6) — Infrix JSON-RPC
+    // dispatcher endpoints, not Accumulate L0 (:26660/v3). Mirrors
+    // tools/vscode-extension/src/client.ts::getRpcUrl.
     switch (network) {
         case 'mainnet':
-            return 'https://mainnet.accumulatenetwork.io/v3';
+            return 'https://mainnet.infrix.io/rpc';
         case 'testnet':
-            return 'https://testnet.accumulatenetwork.io/v3';
+            return 'https://testnet.infrix.io/rpc';
         case 'devnet':
-            return 'https://devnet.accumulatenetwork.io/v3';
+            return 'https://devnet.infrix.io/rpc';
         case 'local':
-            return 'http://localhost:26660/v3';
+            return 'http://localhost:8080/rpc';
         default:
-            return 'https://testnet.accumulatenetwork.io/v3';
+            return 'http://localhost:8080/rpc';
     }
 }
 

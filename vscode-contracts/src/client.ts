@@ -77,17 +77,22 @@ export class InfrixClient {
             return this.config.rpcUrl;
         }
 
+        // Gap 15 sixteenth-pass closure (commit 4/6) — these defaults
+        // address the Infrix JSON-RPC dispatcher (POST /rpc on the
+        // Infrix node), NOT Accumulate L0's REST API (which lives at
+        // :26660/v3 and is consumed only by pkg/l0/*). Any state-
+        // changing call here flows through governed.submit.
         switch (this.config.network) {
             case 'mainnet':
-                return 'https://mainnet.accumulatenetwork.io/v3';
+                return 'https://mainnet.infrix.io/rpc';
             case 'testnet':
-                return 'https://testnet.accumulatenetwork.io/v3';
+                return 'https://testnet.infrix.io/rpc';
             case 'devnet':
-                return 'https://devnet.accumulatenetwork.io/v3';
+                return 'https://devnet.infrix.io/rpc';
             case 'local':
-                return 'http://localhost:26660/v3';
+                return 'http://localhost:8080/rpc';
             default:
-                return 'https://testnet.accumulatenetwork.io/v3';
+                return 'http://localhost:8080/rpc';
         }
     }
 
@@ -198,7 +203,12 @@ export class InfrixClient {
     }
 
     /**
-     * Get contract events
+     * Get contract events. Routed through the registered events.history
+     * JSON-RPC method (pkg/devnet/rpc_handler.go:140) — the legacy
+     * `contract.events` method was never registered server-side and
+     * would have returned method-not-found at runtime. Filtering by
+     * contract URL / block range is performed client-side because the
+     * server's eventsHistoryParams accepts only an eventType filter.
      */
     async getEvents(
         contractUrl: string,
@@ -206,14 +216,17 @@ export class InfrixClient {
         fromBlock?: number,
         toBlock?: number
     ): Promise<ContractEvent[]> {
-        const result = await this.rpc('contract.events', {
-            url: contractUrl,
-            eventName,
-            fromBlock,
-            toBlock
+        const result = await this.rpc('events.history', {
+            eventType: eventName ?? '',
         });
 
-        return result.events || [];
+        const events: ContractEvent[] = (result.events || []) as ContractEvent[];
+        return events.filter(e => {
+            if (fromBlock !== undefined && e.blockHeight < fromBlock) return false;
+            if (toBlock !== undefined && e.blockHeight > toBlock) return false;
+            void contractUrl;
+            return true;
+        });
     }
 
     /**
