@@ -1,11 +1,20 @@
 /**
  * CinemaWidget - Lightweight Cinema viewer for the extension popup.
  * Shows a Ghost transaction preview before signing.
+ *
+ * Gap 15 §15 thirteenth-pass closure: /v4/ghost/preview is a gated
+ * endpoint that REQUIRES X-Actor / X-Purpose / X-Workflow-Instance
+ * request headers (Gap 12 seventh-pass disclosure gate). Constructors
+ * accept a `disclosure` object carrying those three values so the
+ * widget can project the wallet's ambient identity into each fetch.
+ * Without the disclosure context the endpoint responds 400, so the
+ * popup MUST pass it in — the widget does not synthesize defaults.
  */
 class CinemaWidget {
-    constructor(container, rpcUrl) {
+    constructor(container, rpcUrl, disclosure) {
         this.container = container;
         this.rpcUrl = rpcUrl;
+        this.disclosure = disclosure || {};
         this.canvas = null;
     }
 
@@ -48,14 +57,21 @@ class CinemaWidget {
     }
 
     async fetchGhostPreview(contractUrl, fn, args) {
-        // Gap 15 closure: the legacy ghost-preview endpoint was deleted;
-        // the canonical governance-first successor is /v4/ghost/preview. Wire shape
-        // is unchanged — contractUrl / function / args go in, a
-        // projected ghost receipt (success / gasUsed / stateChanges /
-        // events / returnData) comes back. See pkg/ghost/api/server.go.
+        // Gap 15 closure: /v4/ghost/preview is the canonical
+        // governance-first successor to the deleted legacy ghost-
+        // preview endpoint. Wire shape: { contractUrl, function, args }
+        // in, projected ghost receipt out. See pkg/ghost/api/server.go.
+        //
+        // Gap 12 seventh-pass gate: three disclosure headers are
+        // mandatory. Without them the endpoint returns 400. The popup
+        // builds this context from wallet state before construction.
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.disclosure.actor) headers['X-Actor'] = this.disclosure.actor;
+        if (this.disclosure.purpose) headers['X-Purpose'] = this.disclosure.purpose;
+        if (this.disclosure.workflowInstance) headers['X-Workflow-Instance'] = this.disclosure.workflowInstance;
         const resp = await fetch(`${this.rpcUrl}/v4/ghost/preview`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ contractUrl, function: fn, args }),
         });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);

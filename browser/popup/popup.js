@@ -153,27 +153,50 @@ async function refreshPending() {
 
   // Wire the preview + analyze widgets for any request that carries
   // enough context to invoke them. Pending-request payload lives under
-  // req.params (background.js:162 preserves the raw approval envelope
+  // req.params (background.js preserves the raw approval envelope
   // verbatim); UI code projects what it needs rather than duplicating
   // fields onto the top-level request. Governance-first discipline:
   // the opaque params envelope stays authoritative, the UI reads from
   // it. The wallet RPC URL comes from the wallet state; fall back to
   // the well-known devnet default so the widget can at least attempt
   // the request.
+  //
+  // Gap 15 §15 thirteenth-pass closure: /v4/ghost/preview and
+  // /v4/debug/analyze are Gap 12 seventh-pass gated endpoints that
+  // require X-Actor / X-Purpose / X-Workflow-Instance headers. Build
+  // the disclosure context from wallet state + pending-request id and
+  // pass it into each widget. If the wallet has no configured ADI we
+  // skip widget instantiation entirely — there is no sensible caller
+  // identity to stamp, and fabricating one would be a bypass.
   const rpcUrl = (result.rpcUrl || 'http://localhost:8080').replace(/\/+$/, '');
+  const walletState = await sendMessage({ type: 'wallet.getState' });
+  const actor = (walletState && walletState.adi) || '';
   for (const req of result.requests) {
     const contractUrl = req.params && req.params.contractUrl;
     const fn = req.params && req.params.function;
     const args = (req.params && req.params.args) || null;
     if (!contractUrl || !fn) continue;
+    if (!actor) continue; // no wallet ADI → no disclosure context → skip
+    // Distinct purpose + workflow-instance for preview vs analyze so
+    // audit trails stay separated between the two analytical reads.
+    const disclosureCinema = {
+      actor,
+      purpose: 'wallet-preview',
+      workflowInstance: 'wallet-preview-' + req.id,
+    };
+    const disclosureDebug = {
+      actor,
+      purpose: 'wallet-analyze',
+      workflowInstance: 'wallet-analyze-' + req.id,
+    };
     const cinemaSlot = document.getElementById('cinema-slot-' + req.id);
     const debugSlot = document.getElementById('debug-slot-' + req.id);
     if (cinemaSlot && typeof window.CinemaWidget === 'function') {
-      const cw = new window.CinemaWidget(cinemaSlot, rpcUrl);
+      const cw = new window.CinemaWidget(cinemaSlot, rpcUrl, disclosureCinema);
       cw.showPreview(contractUrl, fn, args);
     }
     if (debugSlot && typeof window.DebugPanel === 'function') {
-      const dp = new window.DebugPanel(debugSlot, rpcUrl);
+      const dp = new window.DebugPanel(debugSlot, rpcUrl, disclosureDebug);
       dp.showForTransaction(contractUrl, fn, args);
     }
   }

@@ -1,11 +1,17 @@
 /**
  * DebugPanel - Shows Debug explanation of potential transaction failures
  * within the extension popup's approval dialog.
+ *
+ * Gap 15 §15 thirteenth-pass closure: /v4/debug/analyze is gated on
+ * X-Actor / X-Purpose / X-Workflow-Instance. Constructor accepts a
+ * `disclosure` object; the popup projects the wallet's ambient
+ * identity into each fetch. No defaults are synthesized.
  */
 class DebugPanel {
-    constructor(container, rpcUrl) {
+    constructor(container, rpcUrl, disclosure) {
         this.container = container;
         this.rpcUrl = rpcUrl;
+        this.disclosure = disclosure || {};
     }
 
     /** Show debug info for a pending transaction. */
@@ -61,14 +67,22 @@ class DebugPanel {
     }
 
     async fetchDebugAnalysis(contractUrl, fn, args) {
-        // Gap 15 closure: the legacy debug-analyze endpoint was deleted;
-        // the canonical governance-first successor is /v4/debug/analyze. Wire shape
-        // unchanged — {contractUrl, function, args} in; {riskLevel,
-        // gasEstimate, willRevert, warnings, suggestions} out.
-        // See pkg/debug/api.go::HandleAnalyze.
+        // Gap 15 closure: /v4/debug/analyze is the canonical
+        // governance-first successor to the deleted legacy debug-
+        // analyze endpoint. Wire shape: { contractUrl, function, args }
+        // in; { riskLevel, gasEstimate, willRevert, warnings,
+        // suggestions, governance } out. See pkg/debug/api.go.
+        //
+        // Gap 12 seventh-pass gate: three disclosure headers are
+        // mandatory. Without them the endpoint returns 400. The popup
+        // builds this context from wallet state before construction.
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.disclosure.actor) headers['X-Actor'] = this.disclosure.actor;
+        if (this.disclosure.purpose) headers['X-Purpose'] = this.disclosure.purpose;
+        if (this.disclosure.workflowInstance) headers['X-Workflow-Instance'] = this.disclosure.workflowInstance;
         const resp = await fetch(`${this.rpcUrl}/v4/debug/analyze`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ contractUrl, function: fn, args }),
         });
         if (!resp.ok) {
