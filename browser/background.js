@@ -109,11 +109,28 @@ async function handleMessage(message, sender) {
     }
 
     case 'wallet.approveIntent': {
-      return rpcProxy('approval.submit', {
-        targetId: message.intentId,
-        planHash: message.planHash,
-        identity: walletState.adi,
-      });
+      // P3 #20 closure: dApp approval requests MUST route through
+      // the user-prompt queue, NOT auto-submit. Pre-closure this
+      // handler auto-submitted approval.submit on the dApp's behalf
+      // without ANY user interaction — a confused-deputy attack
+      // vector where a malicious page could ratify plans the user
+      // never saw. Post-closure, the request is queued as a pending
+      // approval; the popup renders it through PlanApprovalView
+      // (showing steps + sim hash + trust profiles); only after the
+      // user clicks "Sign & approve" does background.js call
+      // approval.submit (in the wallet.approveRequest case arm).
+      const id = nextRequestId++;
+      const request = {
+        id,
+        type: 'approveIntent',
+        origin: (sender && sender.origin) || (sender && sender.url) || 'unknown',
+        params: {
+          intentId: message.intentId,
+          planHash: message.planHash,
+        },
+      };
+      walletState.pendingRequests.set(id, request);
+      return { queued: true, requestId: id };
     }
 
     // ---- Session Keys ----
@@ -175,13 +192,44 @@ async function handleMessage(message, sender) {
     case 'wallet.approveRequest': {
       const req = walletState.pendingRequests.get(message.requestId);
       if (!req) return { error: 'Request not found' };
-      walletState.pendingRequests.delete(message.requestId);
-      // Execute the approved request. Only governance-submitted intents
-      // are permitted; raw contract calls have no direct proxy.
-      if (req.type === 'submitIntent') {
-        return rpcProxy('intent.submit', req.params);
+      // P3 #20: when the popup supplies a planHash (the canonical
+      // simulation-binding the user just signed off on), validate it
+      // matches the request's planHash before completing the
+      // approval. Mismatched hashes mean the popup rendered a
+      // different plan than the one the dApp originally submitted —
+      // refuse to sign.
+      if (message.planHash) {
+        const requestHash = req.params && (req.params.planHash || (req.params.plan && req.params.plan.hash));
+        if (requestHash && message.planHash !== requestHash) {
+          return { error: 'Plan hash mismatch — popup rendered a different plan than the one queued (signing aborted to prevent confused-deputy attack)' };
+        }
+        req.signedPlanHash = message.planHash;
       }
-      return { approved: true };
+      walletState.pendingRequests.delete(message.requestId);
+      // Execute the approved request. The wallet supports two
+      // governance-submission shapes:
+      //   - submitIntent: forward the original intent payload to
+      //     intent.submit (the canonical spine entrypoint).
+      //   - approveIntent: submit an ApprovalEnvelope to
+      //     approval.submit so the plan-hash signature reaches the
+      //     governance pipeline.
+      if (req.type === 'submitIntent') {
+        return rpcProxy('intent.submit', augmentDisclosureContext(req.params || {}));
+      }
+      if (req.type === 'approveIntent' || req.type === 'wallet.approveIntent' || req.type === 'approval.signPlan') {
+        const params = augmentDisclosureContext({
+          intentId: req.params && req.params.intentId,
+          planHash: req.signedPlanHash || (req.params && req.params.planHash),
+          signerIdentity: walletState.adi,
+          // The actual signature bytes are produced by future
+          // wallet key-management work (encrypted-keys integration).
+          // For now, the wallet records the user's intent to approve
+          // by submitting the structured envelope; downstream signing
+          // proves provenance via the spine's audit trail.
+        });
+        return rpcProxy('approval.submit', params);
+      }
+      return { approved: true, signedPlanHash: req.signedPlanHash || null };
     }
 
     case 'wallet.rejectRequest': {
@@ -192,12 +240,49 @@ async function handleMessage(message, sender) {
     case 'wallet.getPendingRequests': {
       const pending = [];
       walletState.pendingRequests.forEach((v, k) => pending.push(v));
-      return { requests: pending };
+      return { requests: pending, rpcUrl: walletState.rpcUrl };
+    }
+
+    // P3 #20: generic RPC proxy for popup-side renderers that need
+    // to fetch plan detail (intent.plan, objects.list, approval.get,
+    // etc.) The background service worker has the host_permissions
+    // for arbitrary devnet endpoints; the popup does not. Every
+    // governed RPC method requires a disclosure context — the
+    // background stamps the wallet's ADI as actor and "wallet-plan-
+    // approval" as purpose so audit trails attribute the read to
+    // the wallet's signing flow.
+    case 'wallet.rpc': {
+      try {
+        const params = augmentDisclosureContext(message.params || {});
+        const result = await rpcProxy(message.method, params);
+        return { result };
+      } catch (e) {
+        return { error: e.message || String(e) };
+      }
     }
 
     default:
       return { error: 'Unknown message type: ' + message.type };
   }
+}
+
+/**
+ * augmentDisclosureContext stamps the wallet's ADI as the disclosure
+ * actor + a purpose marker on every RPC call from the popup. Most
+ * governed read methods (intent.plan, objects.list, approval.get)
+ * require these headers/params under the Gap 12 disclosure gate.
+ *
+ * P3 #20: the wallet running locally on the operator's machine
+ * is the canonical caller for plan-approval reads; recording its
+ * ADI lets audit trails distinguish wallet-driven approval reads
+ * from cinema viewers, RPC clients, and other consumers.
+ */
+function augmentDisclosureContext(params) {
+  const out = Object.assign({}, params);
+  if (!out.actor && walletState.adi) out.actor = walletState.adi;
+  if (!out.purpose) out.purpose = 'wallet-plan-approval';
+  if (!out.workflowInstance) out.workflowInstance = 'wallet-plan-approval-' + Date.now();
+  return out;
 }
 
 // ---- RPC Proxy ----

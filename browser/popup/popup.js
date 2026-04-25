@@ -133,23 +133,40 @@ async function refreshPending() {
   }
 
   section.style.display = '';
-  let html = '';
+  // P3 #20: render approveIntent / approveRequest types through the
+  // PlanApprovalView — the gap-analysis-mandated default affordance.
+  // Other request types (e.g. connect, sign-message) keep the prior
+  // simple rendering. PlanApprovalView is loaded from
+  // popup/plan-approval.js and exposed as window.PlanApprovalView.
+  list.innerHTML = '';
+  const planApprovalRpc = (method, params) => sendRPCThroughBackground(method, params);
+  const planView = (typeof window.PlanApprovalView === 'function')
+    ? new window.PlanApprovalView(planApprovalRpc, sendMessage)
+    : null;
+
   for (const req of result.requests) {
-    html += '<div class="pending-item">';
-    html += '<div class="pending-origin">' + (req.origin || 'Unknown origin') + '</div>';
-    html += '<div class="pending-action">' + req.type + '</div>';
-    // Gap 15 closure: slot the preview + analyze widgets into each
-    // pending item. We render after innerHTML is set, so we need unique
-    // container IDs per request.
+    const item = document.createElement('div');
+    item.className = 'pending-item';
+    list.appendChild(item);
+
+    if (planView && isPlanApprovalRequest(req)) {
+      // Default affordance: render the rich plan-detail view.
+      planView.render(item, req);
+      continue;
+    }
+
+    // Fallback for non-plan requests (connect, sign, etc.).
+    let html = '';
+    html += '<div class="pending-origin">' + escapeHTML(req.origin || 'Unknown origin') + '</div>';
+    html += '<div class="pending-action">' + escapeHTML(req.type) + '</div>';
     html += '<div class="cinema-widget-slot" id="cinema-slot-' + req.id + '"></div>';
     html += '<div class="debug-panel-slot" id="debug-slot-' + req.id + '"></div>';
     html += '<div class="btn-row">';
     html += '<button class="btn btn-primary btn-sm" onclick="approveRequest(' + req.id + ')">Approve</button>';
     html += '<button class="btn btn-danger btn-sm" onclick="rejectRequest(' + req.id + ')">Reject</button>';
     html += '</div>';
-    html += '</div>';
+    item.innerHTML = html;
   }
-  list.innerHTML = html;
 
   // Wire the preview + analyze widgets for any request that carries
   // enough context to invoke them. Pending-request payload lives under
@@ -214,3 +231,54 @@ async function rejectRequest(id) {
 
 window.approveRequest = approveRequest;
 window.rejectRequest = rejectRequest;
+window.refreshPending = refreshPending;
+
+/**
+ * isPlanApprovalRequest reports whether a pending request should
+ * render through the rich plan-detail view (P3 #20). The canonical
+ * shape carries either an explicit type marker
+ * ("approveIntent" / "wallet.approveIntent" / "approval.signPlan")
+ * OR a params block with a planHash / intentId — both indicate the
+ * caller wants the user to sign a specific plan.
+ */
+function isPlanApprovalRequest(req) {
+  if (!req) return false;
+  const type = String(req.type || '');
+  if (type === 'approveIntent' || type === 'wallet.approveIntent' || type === 'approval.signPlan') return true;
+  if (req.params && (req.params.planHash || req.params.intentId || req.params.planId)) return true;
+  return false;
+}
+
+/**
+ * sendRPCThroughBackground proxies a JSON-RPC method through the
+ * background service worker. The popup itself has no host
+ * permissions for arbitrary networks; only background.js does. The
+ * background script translates wallet.rpc messages into HTTP POSTs
+ * to the configured devnet RPC URL.
+ */
+async function sendRPCThroughBackground(method, params) {
+  const result = await sendMessage({ type: 'wallet.rpc', method, params });
+  if (!result) {
+    throw new Error('no response from background');
+  }
+  if (result.error) {
+    throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error));
+  }
+  return result.result;
+}
+
+/**
+ * escapeHTML protects against injection from dApp-supplied request
+ * fields. The popup runs trusted code but the request payload
+ * originates from the page that called window.infrix.* — it must
+ * be treated as untrusted.
+ */
+function escapeHTML(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
