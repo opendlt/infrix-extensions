@@ -1,0 +1,107 @@
+{
+  "name": "infrix-vscode",
+  "displayName": "Infrix Governance Spine",
+  "description": "Inspect intents, plans, approvals, and evidence inside VS Code. Drives the canonical /v4 governance API through the wallet's RPC proxy.",
+  "version": "0.1.0",
+  "publisher": "infrix",
+  "private": true,
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onView:infrix.governanceTree"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "infrix",
+          "title": "Infrix",
+          "icon": "$(symbol-event)"
+        }
+      ]
+    },
+    "views": {
+      "infrix": [
+        {
+          "id": "infrix.governanceTree",
+          "name": "Governance",
+          "icon": "$(symbol-event)"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "infrix.refresh",
+        "title": "Infrix: Refresh Governance Tree",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "infrix.viewPlan",
+        "title": "Infrix: View Plan",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "infrix.viewEvidence",
+        "title": "Infrix: View Evidence Bundle",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "infrix.connectWallet",
+        "title": "Infrix: Connect Wallet"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "infrix.refresh",
+          "when": "view == infrix.governanceTree",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "infrix.viewPlan",
+          "when": "view == infrix.governanceTree && viewItem == intent",
+          "group": "inline"
+        },
+        {
+          "command": "infrix.viewEvidence",
+          "when": "view == infrix.governanceTree && viewItem == intent-with-outcome",
+          "group": "inline"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Infrix",
+      "properties": {
+        "infrix.endpoint": {
+          "type": "string",
+          "default": "http://localhost:8080",
+          "description": "Infrix devnet REST endpoint."
+        },
+        "infrix.actor": {
+          "type": "string",
+          "default": "",
+          "description": "Actor ADI for governance reads. Required for disclosure-context-aware reads (X-Actor header)."
+        },
+        "infrix.purpose": {
+          "type": "string",
+          "default": "audit",
+          "description": "Purpose claim for governance reads (X-Purpose header)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}
