@@ -99,12 +99,19 @@ async function handleMessage(message, sender) {
     // ---- Governance Submission (RPC Proxy) ----
     // State-changing actions (including contract deploy/call) flow through
     // the governance spine as intents; there is no raw contract proxy.
+    //
+    // P2-003 closure: augmentDisclosureContext stamps actor/purpose/
+    // workflowInstance on every governed RPC submission, including
+    // direct wallet.submitIntent calls. The Gap 12 disclosure gate on
+    // governed read endpoints rejects bare submissions with 400; the
+    // augmentation here is the governance spine's required envelope on
+    // every wallet-originated RPC, not just popup-driven plan reads.
     case 'wallet.submitIntent': {
-      const params = {
+      const params = augmentDisclosureContext({
         userAddress: walletState.adi,
         goal: message.goal,
         ...(message.opts || {}),
-      };
+      });
       return rpcProxy('intent.submit', params);
     }
 
@@ -259,6 +266,26 @@ async function handleMessage(message, sender) {
       } catch (e) {
         return { error: e.message || String(e) };
       }
+    }
+
+    // P2-003 test-harness hook. Test-only reset path used by the
+    // node --test integration suite (extension/tests/) so each test
+    // can start from a known walletState without subprocess spawning.
+    // Production callers never send this — Chrome's content script
+    // does not expose it on window.infrix, the popup does not call
+    // it, and the message type begins with "__" by convention to
+    // mark it as private.
+    case 'wallet.__resetState': {
+      walletState.adi = (message.state && message.state.adi) || '';
+      walletState.rpcUrl = (message.state && message.state.rpcUrl) || 'http://localhost:8080/rpc';
+      walletState.keys = [];
+      walletState.sessions = [];
+      walletState.sponsors = [];
+      walletState.connected = !!(message.state && message.state.adi);
+      walletState.pendingRequests = new Map();
+      nextRequestId = 1;
+      saveState();
+      return { reset: true };
     }
 
     default:

@@ -1,0 +1,18 @@
+{
+  "name": "infrix-extension",
+  "version": "0.1.0",
+  "description": "Infrix browser extension wallet — governance-first ADI wallet, key store, and approval queue. P2-003 release-hardening adds the static + integration test harness.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "lint": "node ./scripts/lint.mjs",
+    "test": "node --test --test-reporter=spec tests/*.test.mjs wallet/*.test.mjs wallet/hardware/*.test.mjs",
+    "test:provider": "node --test --test-reporter=spec tests/content.test.mjs tests/manifest.test.mjs",
+    "test:background": "node --test --test-reporter=spec tests/background.test.mjs",
+    "test:integration": "node --test --test-reporter=spec tests/integration.test.mjs",
+    "build": "node ./scripts/lint.mjs && echo Extension is plain JS; no bundler needed for MV3 module workers."
+  }
+}
