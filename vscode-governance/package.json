@@ -91,13 +91,19 @@
           "type": "string",
           "default": "audit",
           "description": "Purpose claim for governance reads (X-Purpose header)."
+        },
+        "infrix.workflowInstance": {
+          "type": "string",
+          "default": "",
+          "description": "Workflow-instance marker for governance reads (X-Workflow-Instance header). Empty value falls back to a stable per-actor default; set explicitly to distinguish parallel VS Code sessions in the audit log."
         }
       }
     }
   },
   "scripts": {
     "build": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "test": "tsc -p ./tests/tsconfig.json && node --test --test-reporter=spec out-tests/tests/*.test.js"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

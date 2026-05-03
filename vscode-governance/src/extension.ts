@@ -85,7 +85,8 @@ export function activate(context: vscode.ExtensionContext): void {
       if (
         e.affectsConfiguration("infrix.endpoint") ||
         e.affectsConfiguration("infrix.actor") ||
-        e.affectsConfiguration("infrix.purpose")
+        e.affectsConfiguration("infrix.purpose") ||
+        e.affectsConfiguration("infrix.workflowInstance")
       ) {
         tree.refresh(clientFromConfig());
       }
@@ -103,5 +104,10 @@ function clientFromConfig(): InfrixClient {
     endpoint: cfg.get<string>("endpoint") ?? "http://localhost:8080",
     actor: cfg.get<string>("actor") ?? "",
     purpose: cfg.get<string>("purpose") ?? "audit",
+    // P2-004 closure: surface the workflow-instance setting so
+    // operators distinguish multiple concurrent VS Code sessions in
+    // the audit log. Empty value falls back to the client's
+    // per-actor default.
+    workflowInstance: cfg.get<string>("workflowInstance") ?? "",
   });
 }

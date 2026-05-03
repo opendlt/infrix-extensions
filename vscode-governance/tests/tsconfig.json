@@ -1,0 +1,21 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../out-tests",
+    "rootDir": "..",
+    "noEmit": false,
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "types": ["node"]
+  },
+  "include": [
+    "../src/api-client.ts",
+    "./*.test.ts"
+  ],
+  "exclude": [
+    "../node_modules",
+    "../src/extension.ts",
+    "../src/governance-tree.ts",
+    "../src/webviews"
+  ]
+}
