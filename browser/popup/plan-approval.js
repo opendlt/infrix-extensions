@@ -274,6 +274,7 @@
         type: 'wallet.approveRequest',
         requestId: request.id,
         planHash: detail.planHash,
+        passphrase: this.currentPassphrase(),
       });
       if (result && result.error) {
         throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error));
@@ -296,6 +297,11 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    }
+
+    currentPassphrase() {
+      const input = document.getElementById('keyPassphraseInput');
+      return input ? input.value : '';
     }
   }
 

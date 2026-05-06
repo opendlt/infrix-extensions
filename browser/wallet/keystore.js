@@ -28,6 +28,8 @@
 //   {
 //     version: 1,
 //     salt:    base64(16-byte random salt, fixed at first init),
+//     checkIv: base64(12-byte AES-GCM IV for passphrase verification),
+//     checkCiphertext: base64(AES-GCM ciphertext + tag for fixed verifier),
 //     keys: [
 //       {
 //         keyId:        string (uuid-v4),
@@ -43,6 +45,7 @@ const STORAGE_KEY = 'infrix.keystore.v1';
 const PBKDF2_ITERATIONS = 600_000;
 const SALT_BYTES = 16;
 const IV_BYTES = 12;
+const CHECK_PLAINTEXT = 'infrix.keystore.v1.passphrase.check';
 
 // Default auto-lock idle timeout: 15 minutes. Operators with stricter
 // policies override via setIdleTimeout().
@@ -96,9 +99,12 @@ export class EncryptedKeystore {
     if (existing) throw new Error('keystore already initialized; use rotate()');
     const salt = globalThis.crypto.getRandomValues(new Uint8Array(SALT_BYTES));
     const wrappingKey = await this._deriveWrappingKey(passphrase, salt);
+    const check = await this._encryptBytes(new TextEncoder().encode(CHECK_PLAINTEXT), wrappingKey);
     const store = {
       version: 1,
       salt: bytesToB64(salt),
+      checkIv: bytesToB64(check.iv),
+      checkCiphertext: bytesToB64(check.ciphertext),
       keys: [],
     };
     await this._saveStore(store);
@@ -117,15 +123,12 @@ export class EncryptedKeystore {
     if (!store) throw new Error('keystore not initialized');
     const salt = b64ToBytes(store.salt);
     const wrappingKey = await this._deriveWrappingKey(passphrase, salt);
-    // Verify the passphrase by attempting to decrypt the first
-    // entry, if any. If no entries exist, the unlock is implicitly
-    // valid — the caller can call addKey() to populate.
-    if (store.keys.length > 0) {
-      try {
-        await this._decryptEntry(store.keys[0], wrappingKey);
-      } catch (err) {
-        throw new Error('invalid passphrase');
-      }
+    // Verify the passphrase even when no keys exist yet. Without a
+    // check record, an empty keystore would accept any passphrase.
+    try {
+      await this._verifyPassphraseCheck(store, wrappingKey);
+    } catch (err) {
+      throw new Error('invalid passphrase');
     }
     this.unlocked = { wrappingKey, salt };
     this._resetIdleTimer();
@@ -184,6 +187,18 @@ export class EncryptedKeystore {
     return plaintext;
   }
 
+  async deleteKey(keyId) {
+    if (!keyId) throw new Error('deleteKey: keyId required');
+    const store = await this._loadStore();
+    if (!store) return false;
+    const before = store.keys.length;
+    store.keys = store.keys.filter(k => k.keyId !== keyId);
+    if (store.keys.length === before) return false;
+    await this._saveStore(store);
+    if (this.unlocked) this._resetIdleTimer();
+    return true;
+  }
+
   /** List keyId + pubKey for every stored key. Does not unlock. */
   async listKeys() {
     const store = await this._loadStore();
@@ -213,23 +228,25 @@ export class EncryptedKeystore {
     }
     const newSalt = globalThis.crypto.getRandomValues(new Uint8Array(SALT_BYTES));
     const newWrappingKey = await this._deriveWrappingKey(newPassphrase, newSalt);
+    const check = await this._encryptBytes(new TextEncoder().encode(CHECK_PLAINTEXT), newWrappingKey);
     const newEntries = [];
     for (const k of oldKeys) {
-      const iv = globalThis.crypto.getRandomValues(new Uint8Array(IV_BYTES));
-      const ct = await this.subtle.encrypt(
-        { name: 'AES-GCM', iv },
-        newWrappingKey,
-        k.priv,
-      );
+      const encrypted = await this._encryptBytes(k.priv, newWrappingKey);
       newEntries.push({
         keyId: k.keyId,
-        iv: bytesToB64(iv),
-        ciphertext: bytesToB64(new Uint8Array(ct)),
+        iv: bytesToB64(encrypted.iv),
+        ciphertext: bytesToB64(encrypted.ciphertext),
         createdAt: new Date().toISOString(),
         pubKey: bytesToB64(k.pubKey),
       });
     }
-    const newStore = { version: 1, salt: bytesToB64(newSalt), keys: newEntries };
+    const newStore = {
+      version: 1,
+      salt: bytesToB64(newSalt),
+      checkIv: bytesToB64(check.iv),
+      checkCiphertext: bytesToB64(check.ciphertext),
+      keys: newEntries,
+    };
     await this._saveStore(newStore);
     this.unlocked = { wrappingKey: newWrappingKey, salt: newSalt };
     this._resetIdleTimer();
@@ -265,9 +282,37 @@ export class EncryptedKeystore {
     return new Uint8Array(pt);
   }
 
+  async _encryptBytes(bytes, wrappingKey) {
+    const iv = globalThis.crypto.getRandomValues(new Uint8Array(IV_BYTES));
+    const ct = await this.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      wrappingKey,
+      bytes,
+    );
+    return { iv, ciphertext: new Uint8Array(ct) };
+  }
+
+  async _verifyPassphraseCheck(store, wrappingKey) {
+    if (!store.checkIv || !store.checkCiphertext) {
+      throw new Error('keystore missing passphrase verification record');
+    }
+    const pt = await this.subtle.decrypt(
+      { name: 'AES-GCM', iv: b64ToBytes(store.checkIv) },
+      wrappingKey,
+      b64ToBytes(store.checkCiphertext),
+    );
+    const decoded = new TextDecoder().decode(pt);
+    if (decoded !== CHECK_PLAINTEXT) {
+      throw new Error('keystore passphrase verification mismatch');
+    }
+  }
+
   async _loadStore() {
     const raw = await this.storage.get(STORAGE_KEY);
-    return raw ? raw[STORAGE_KEY] || raw : null;
+    if (!raw) return null;
+    if (raw[STORAGE_KEY]) return raw[STORAGE_KEY];
+    if (raw.version === 1) return raw;
+    return null;
   }
 
   async _saveStore(store) {
@@ -281,6 +326,9 @@ export class EncryptedKeystore {
   _resetIdleTimer() {
     if (this.unlocked.lockTimer) clearTimeout(this.unlocked.lockTimer);
     this.unlocked.lockTimer = setTimeout(() => this.lock(), this.idleTimeoutMs);
+    if (typeof this.unlocked.lockTimer.unref === 'function') {
+      this.unlocked.lockTimer.unref();
+    }
   }
 }
 

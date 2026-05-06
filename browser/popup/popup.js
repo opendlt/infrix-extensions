@@ -57,7 +57,12 @@ async function setADI() {
 }
 
 async function generateKey() {
-  await sendMessage({ type: 'wallet.generateKey', algorithm: 'ed25519' });
+  const passphrase = document.getElementById('keyPassphraseInput').value;
+  const result = await sendMessage({ type: 'wallet.generateKey', algorithm: 'ed25519', passphrase });
+  if (result && result.error) {
+    alert(result.error);
+    return;
+  }
   await refreshKeys();
 }
 
@@ -75,14 +80,19 @@ async function refreshKeys() {
     const short = key.publicKey.slice(0, 12) + '...' + key.publicKey.slice(-8);
     html += '<div class="key-item">';
     html += '<span class="key-hex">' + short + '</span>';
-    html += '<button class="btn btn-danger btn-sm" onclick="deleteKey(\'' + key.publicKey + '\')">Delete</button>';
+    html += '<button class="btn btn-danger btn-sm" onclick="deleteKey(\'' + key.keyId + '\')">Delete</button>';
     html += '</div>';
   }
   list.innerHTML = html;
 }
 
-async function deleteKey(publicKey) {
-  await sendMessage({ type: 'wallet.deleteKey', publicKey });
+async function deleteKey(keyId) {
+  const passphrase = document.getElementById('keyPassphraseInput').value;
+  const result = await sendMessage({ type: 'wallet.deleteKey', keyId, passphrase });
+  if (result && result.error) {
+    alert(result.error);
+    return;
+  }
   await refreshKeys();
 }
 
@@ -220,7 +230,13 @@ async function refreshPending() {
 }
 
 async function approveRequest(id) {
-  await sendMessage({ type: 'wallet.approveRequest', requestId: id });
+  const passphraseInput = document.getElementById('keyPassphraseInput');
+  const passphrase = passphraseInput ? passphraseInput.value : '';
+  const result = await sendMessage({ type: 'wallet.approveRequest', requestId: id, passphrase });
+  if (result && result.error) {
+    alert(result.error);
+    return;
+  }
   await refreshPending();
 }
 

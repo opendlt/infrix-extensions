@@ -5,6 +5,8 @@
  * and acts as an RPC proxy to the Infrix devnet/mainnet.
  */
 
+import { EncryptedKeystore } from './wallet/keystore.js';
+
 // ---- State ----
 
 let walletState = {
@@ -18,6 +20,7 @@ let walletState = {
 };
 
 let nextRequestId = 1;
+let encryptedKeystore = null;
 
 // Load state from chrome.storage on startup.
 chrome.storage.local.get(['walletState'], (result) => {
@@ -42,13 +45,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function handleMessage(message, sender) {
   switch (message.type) {
     // ---- Account ----
-    case 'wallet.getState':
+    case 'wallet.getState': {
+      const keys = await listStoredKeys();
       return {
         adi: walletState.adi,
         connected: walletState.connected,
-        keyCount: walletState.keys.length,
+        keyCount: keys.length,
         sessionCount: walletState.sessions.length,
       };
+    }
 
     case 'wallet.setADI':
       walletState.adi = message.adi;
@@ -63,37 +68,58 @@ async function handleMessage(message, sender) {
 
     // ---- Key Management ----
     case 'wallet.generateKey': {
-      // In the extension, keys are generated via Web Crypto and stored encrypted.
-      const keyId = 'key_' + Date.now();
-      const keyEntry = {
-        id: keyId,
-        publicKey: generateRandomHex(64), // 32 bytes as hex
-        algorithm: message.algorithm || 'ed25519',
-        createdAt: new Date().toISOString(),
-        label: message.label || '',
-      };
-      walletState.keys.push(keyEntry);
-      saveState();
-      return { publicKey: keyEntry.publicKey, algorithm: keyEntry.algorithm };
+      const passphrase = requirePassphrase(message.passphrase);
+      const ks = getKeystore();
+      await unlockOrInitializeKeystore(ks, passphrase);
+      try {
+        const generated = await crypto.subtle.generateKey(
+          { name: 'Ed25519' },
+          true,
+          ['sign', 'verify'],
+        );
+        const privateKeyBytes = new Uint8Array(await crypto.subtle.exportKey('pkcs8', generated.privateKey));
+        const publicKeyBytes = new Uint8Array(await crypto.subtle.exportKey('raw', generated.publicKey));
+        const keyId = message.keyId || 'key_' + Date.now();
+        await ks.addKey(keyId, privateKeyBytes, publicKeyBytes);
+        privateKeyBytes.fill(0);
+        ks.lock();
+        return {
+          keyId,
+          publicKey: bytesToHex(publicKeyBytes),
+          algorithm: 'ed25519',
+        };
+      } catch (err) {
+        ks.lock();
+        throw err;
+      }
     }
 
     case 'wallet.listKeys':
-      return { keys: walletState.keys.map(k => ({ publicKey: k.publicKey, algorithm: k.algorithm, label: k.label })) };
+      return { keys: await listStoredKeys() };
 
     case 'wallet.deleteKey': {
-      walletState.keys = walletState.keys.filter(k => k.publicKey !== message.publicKey);
-      saveState();
-      return { deleted: true };
+      const passphrase = requirePassphrase(message.passphrase);
+      const ks = getKeystore();
+      await ks.unlock(passphrase);
+      const keys = await listStoredKeys();
+      const key = keys.find(k => k.keyId === message.keyId || k.publicKey === message.publicKey);
+      if (!key) {
+        ks.lock();
+        return { deleted: false };
+      }
+      const deleted = await ks.deleteKey(key.keyId);
+      ks.lock();
+      return { deleted };
     }
 
     // ---- Transaction Signing ----
     case 'wallet.sign': {
-      // In production, this would use the actual private key via Web Crypto.
-      // For the scaffold, we produce a deterministic signature placeholder.
-      return {
-        signature: generateRandomHex(128), // 64 bytes as hex
-        publicKey: walletState.keys.length > 0 ? walletState.keys[0].publicKey : '',
-      };
+      return signWithStoredKey({
+        passphrase: message.passphrase,
+        message: message.message ?? message.payload,
+        keyId: message.keyId,
+        publicKey: message.publicKey,
+      });
     }
 
     // ---- Governance Submission (RPC Proxy) ----
@@ -224,15 +250,22 @@ async function handleMessage(message, sender) {
         return rpcProxy('intent.submit', augmentDisclosureContext(req.params || {}));
       }
       if (req.type === 'approveIntent' || req.type === 'wallet.approveIntent' || req.type === 'approval.signPlan') {
+        const planHash = req.signedPlanHash || (req.params && req.params.planHash);
+        const signaturePayload = approvalSignaturePayload(req.params && req.params.intentId, planHash, walletState.adi);
+        const signature = await signWithStoredKey({
+          passphrase: message.passphrase,
+          message: signaturePayload,
+          keyId: message.keyId,
+          publicKey: message.publicKey,
+        });
         const params = augmentDisclosureContext({
           intentId: req.params && req.params.intentId,
-          planHash: req.signedPlanHash || (req.params && req.params.planHash),
+          planHash,
           signerIdentity: walletState.adi,
-          // The actual signature bytes are produced by future
-          // wallet key-management work (encrypted-keys integration).
-          // For now, the wallet records the user's intent to approve
-          // by submitting the structured envelope; downstream signing
-          // proves provenance via the spine's audit trail.
+          signerPublicKey: signature.publicKey,
+          signature: signature.signature,
+          signatureAlgorithm: signature.algorithm,
+          signaturePayload,
         });
         return rpcProxy('approval.submit', params);
       }
@@ -283,6 +316,7 @@ async function handleMessage(message, sender) {
       walletState.sponsors = [];
       walletState.connected = !!(message.state && message.state.adi);
       walletState.pendingRequests = new Map();
+      encryptedKeystore = null;
       nextRequestId = 1;
       saveState();
       return { reset: true };
@@ -312,6 +346,124 @@ function augmentDisclosureContext(params) {
   return out;
 }
 
+function getKeystore() {
+  if (!encryptedKeystore) {
+    encryptedKeystore = new EncryptedKeystore(chromeStorageAdapter());
+  }
+  return encryptedKeystore;
+}
+
+function chromeStorageAdapter() {
+  return {
+    get(key) {
+      return new Promise((resolve, reject) => {
+        chrome.storage.local.get([key], result => {
+          const err = chrome.runtime && chrome.runtime.lastError;
+          if (err) reject(new Error(err.message));
+          else resolve(result);
+        });
+      });
+    },
+    set(obj) {
+      return new Promise((resolve, reject) => {
+        chrome.storage.local.set(obj, () => {
+          const err = chrome.runtime && chrome.runtime.lastError;
+          if (err) reject(new Error(err.message));
+          else resolve();
+        });
+      });
+    },
+  };
+}
+
+async function unlockOrInitializeKeystore(ks, passphrase) {
+  try {
+    await ks.unlock(passphrase);
+  } catch (err) {
+    if (String(err.message || err).includes('keystore not initialized')) {
+      await ks.initialize(passphrase);
+      return;
+    }
+    throw err;
+  }
+}
+
+async function listStoredKeys() {
+  const keys = await getKeystore().listKeys();
+  return keys.map(k => ({
+    keyId: k.keyId,
+    publicKey: bytesToHex(k.pubKey),
+    algorithm: 'ed25519',
+    createdAt: k.createdAt,
+  }));
+}
+
+function selectSigningKey(keys, keyId, publicKey) {
+  if (keys.length === 0) throw new Error('no signing keys available');
+  if (!keyId && !publicKey) return keys[0];
+  const selected = keys.find(k => k.keyId === keyId || k.publicKey === publicKey);
+  if (!selected) throw new Error('signing key not found');
+  return selected;
+}
+
+function requirePassphrase(passphrase) {
+  if (typeof passphrase !== 'string' || passphrase.length === 0) {
+    throw new Error('wallet passphrase required');
+  }
+  return passphrase;
+}
+
+async function signWithStoredKey({ passphrase, message, keyId, publicKey }) {
+  const checkedPassphrase = requirePassphrase(passphrase);
+  const messageBytes = signableMessageBytes(message);
+  const ks = getKeystore();
+  await ks.unlock(checkedPassphrase);
+  let privateKeyBytes;
+  try {
+    const keys = await listStoredKeys();
+    const selected = selectSigningKey(keys, keyId, publicKey);
+    privateKeyBytes = await ks.getKey(selected.keyId);
+    const privateKey = await crypto.subtle.importKey(
+      'pkcs8',
+      privateKeyBytes,
+      { name: 'Ed25519' },
+      false,
+      ['sign'],
+    );
+    const signature = new Uint8Array(await crypto.subtle.sign(
+      { name: 'Ed25519' },
+      privateKey,
+      messageBytes,
+    ));
+    return {
+      keyId: selected.keyId,
+      publicKey: selected.publicKey,
+      algorithm: 'ed25519',
+      signature: bytesToHex(signature),
+    };
+  } finally {
+    if (privateKeyBytes) privateKeyBytes.fill(0);
+    ks.lock();
+  }
+}
+
+function signableMessageBytes(message) {
+  if (typeof message !== 'string') {
+    throw new Error('wallet.sign requires a string message');
+  }
+  if (/^0x[0-9a-fA-F]*$/.test(message)) {
+    return hexToBytes(message.slice(2));
+  }
+  return new TextEncoder().encode(message);
+}
+
+function approvalSignaturePayload(intentId, planHash, signerIdentity) {
+  if (!intentId) throw new Error('approval signature requires intentId');
+  if (!planHash) throw new Error('approval signature requires planHash');
+  if (!signerIdentity) throw new Error('approval signature requires signer identity');
+  return ['infrix-approval-v1', intentId, planHash, signerIdentity].join(':');
+}
+
 // ---- RPC Proxy ----
 
 async function rpcProxy(method, params) {
@@ -332,4 +484,17 @@ function generateRandomHex(length) {
   const bytes = new Uint8Array(length / 2);
   crypto.getRandomValues(bytes);
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function bytesToHex(bytes) {
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function hexToBytes(hex) {
+  if (hex.length % 2 !== 0) throw new Error('hex message must have an even number of digits');
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
 }

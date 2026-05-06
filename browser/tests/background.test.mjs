@@ -52,6 +52,79 @@ test('unknown message type returns explicit error', async () => {
   assert.match(r.error, /Unknown message type/);
 });
 
+test('wallet.generateKey requires a passphrase', async () => {
+  await loadBackground({});
+  const r = await postMessage({ type: 'wallet.generateKey', algorithm: 'ed25519' });
+  assert.match(String(r.error || ''), /wallet passphrase required/);
+  const state = await postMessage({ type: 'wallet.getState' });
+  assert.equal(state.keyCount, 0, 'failed key generation must not persist public keys');
+});
+
+test('wallet.sign requires a passphrase instead of emitting fake signatures', async () => {
+  await loadBackground({ adi: 'acc://alice.acme' });
+  const r = await postMessage({ type: 'wallet.sign', payload: '0x1234' });
+  assert.match(String(r.error || ''), /wallet passphrase required/);
+  assert.equal(Object.hasOwn(r, 'signature'), false, 'unsigned requests must not return signature-shaped bytes');
+});
+
+test('wallet.generateKey + wallet.sign produce a verifiable Ed25519 signature', async () => {
+  await loadBackground({ adi: 'acc://alice.acme' });
+  const passphrase = 'correct horse battery staple';
+  const generated = await postMessage({
+    type: 'wallet.generateKey',
+    algorithm: 'ed25519',
+    keyId: 'default',
+    passphrase,
+  });
+  assert.equal(generated.keyId, 'default');
+  assert.match(generated.publicKey, /^[0-9a-f]{64}$/);
+  const state = await postMessage({ type: 'wallet.getState' });
+  assert.equal(state.keyCount, 1);
+
+  const message = 'approve plan hash 0xfeedface';
+  const signed = await postMessage({
+    type: 'wallet.sign',
+    keyId: 'default',
+    passphrase,
+    message,
+  });
+  assert.equal(signed.keyId, 'default');
+  assert.equal(signed.publicKey, generated.publicKey);
+  assert.match(signed.signature, /^[0-9a-f]{128}$/);
+
+  const publicKey = await crypto.subtle.importKey(
+    'raw',
+    hexToBytes(signed.publicKey),
+    { name: 'Ed25519' },
+    false,
+    ['verify'],
+  );
+  const verified = await crypto.subtle.verify(
+    { name: 'Ed25519' },
+    publicKey,
+    hexToBytes(signed.signature),
+    new TextEncoder().encode(message),
+  );
+  assert.equal(verified, true, 'signature must verify against the stored public key');
+});
+
+test('wallet.sign rejects the wrong passphrase before producing bytes', async () => {
+  await loadBackground({ adi: 'acc://alice.acme' });
+  await postMessage({
+    type: 'wallet.generateKey',
+    keyId: 'default',
+    passphrase: 'right-passphrase',
+  });
+  const r = await postMessage({
+    type: 'wallet.sign',
+    keyId: 'default',
+    passphrase: 'wrong-passphrase',
+    message: 'cannot sign this',
+  });
+  assert.match(String(r.error || ''), /invalid passphrase/);
+  assert.equal(Object.hasOwn(r, 'signature'), false);
+});
+
 test('wallet.submitIntent stamps actor + purpose + workflowInstance on the RPC params', async () => {
   installFetchStub();
   resetFetchHistory();
@@ -168,6 +241,12 @@ test('wallet.approveRequest with matching planHash routes to approval.submit wit
   installFetchStub();
   resetFetchHistory();
   await loadBackground({ adi: 'acc://alice.acme', rpcUrl: 'http://localhost:9999/rpc' });
+  const passphrase = 'approval-passphrase';
+  const key = await postMessage({
+    type: 'wallet.generateKey',
+    keyId: 'approval-key',
+    passphrase,
+  });
   const queued = await postMessage({
     type: 'wallet.approveIntent',
     intentId: 'intent-7',
@@ -178,6 +257,8 @@ test('wallet.approveRequest with matching planHash routes to approval.submit wit
     type: 'wallet.approveRequest',
     requestId: queued.requestId,
     planHash: '0xfeedface',
+    keyId: 'approval-key',
+    passphrase,
   });
   const f = lastFetch();
   assert.ok(f);
@@ -187,6 +268,25 @@ test('wallet.approveRequest with matching planHash routes to approval.submit wit
   assert.equal(f.body.params.actor, 'acc://alice.acme');
   assert.equal(f.body.params.purpose, 'wallet-plan-approval');
   assert.ok(f.body.params.workflowInstance);
+  assert.equal(f.body.params.signerPublicKey, key.publicKey);
+  assert.equal(f.body.params.signatureAlgorithm, 'ed25519');
+  assert.equal(f.body.params.signaturePayload, 'infrix-approval-v1:intent-7:0xfeedface:acc://alice.acme');
+  assert.match(f.body.params.signature, /^[0-9a-f]{128}$/);
+
+  const publicKey = await crypto.subtle.importKey(
+    'raw',
+    hexToBytes(f.body.params.signerPublicKey),
+    { name: 'Ed25519' },
+    false,
+    ['verify'],
+  );
+  const verified = await crypto.subtle.verify(
+    { name: 'Ed25519' },
+    publicKey,
+    hexToBytes(f.body.params.signature),
+    new TextEncoder().encode(f.body.params.signaturePayload),
+  );
+  assert.equal(verified, true, 'approval signature must verify over the canonical approval payload');
 });
 
 test('wallet.createSession + listSessions + revokeSession round-trip in module state', async () => {
@@ -226,3 +326,11 @@ test('wallet.validateSession enforces scope.contracts allowlist', async () => {
   assert.equal(denied.valid, false);
   assert.match(denied.error || '', /Contract not allowed/);
 });
+
+function hexToBytes(hex) {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}

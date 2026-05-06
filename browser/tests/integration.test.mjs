@@ -188,6 +188,11 @@ test('wallet.approveRequest end-to-end → approval.submit lands on mock server'
   try {
     restoreRealFetch();
     await loadBackground({ adi: 'acc://alice.acme', rpcUrl: mock.url });
+    await postMessage({
+      type: 'wallet.generateKey',
+      keyId: 'approval-key',
+      passphrase: 'approval-passphrase',
+    });
     const queued = await postMessage({
       type: 'wallet.approveIntent',
       intentId: 'intent-42',
@@ -199,6 +204,8 @@ test('wallet.approveRequest end-to-end → approval.submit lands on mock server'
       type: 'wallet.approveRequest',
       requestId: queued.requestId,
       planHash: '0xcafebabe',
+      keyId: 'approval-key',
+      passphrase: 'approval-passphrase',
     });
     assert.equal(mock.calls.length, 1, 'exactly one approval RPC after user approval');
     const c = mock.calls[0];
@@ -206,6 +213,10 @@ test('wallet.approveRequest end-to-end → approval.submit lands on mock server'
     assert.equal(c.params.intentId, 'intent-42');
     assert.equal(c.params.planHash, '0xcafebabe');
     assert.equal(c.params.actor, 'acc://alice.acme');
+    assert.match(c.params.signature, /^[0-9a-f]{128}$/);
+    assert.match(c.params.signerPublicKey, /^[0-9a-f]{64}$/);
+    assert.equal(c.params.signatureAlgorithm, 'ed25519');
+    assert.equal(c.params.signaturePayload, 'infrix-approval-v1:intent-42:0xcafebabe:acc://alice.acme');
     assert.ok(c.params.workflowInstance);
   } finally {
     await mock.close();

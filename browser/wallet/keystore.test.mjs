@@ -59,6 +59,16 @@ test('wrong passphrase rejected after addKey', async () => {
   await assert.rejects(() => ks2.unlock(wrong), /invalid passphrase/);
 });
 
+test('wrong passphrase rejected before any keys exist', async () => {
+  const storage = newStorage();
+  const ks = new EncryptedKeystore(storage);
+  await ks.initialize(passphrase);
+  ks.lock();
+
+  const ks2 = new EncryptedKeystore(storage);
+  await assert.rejects(() => ks2.unlock(wrong), /invalid passphrase/);
+});
+
 test('rotate re-encrypts all keys under new passphrase', async () => {
   const storage = newStorage();
   const ks = new EncryptedKeystore(storage);
@@ -101,6 +111,18 @@ test('addKey overwrites existing keyId', async () => {
   await ks.addKey('default', new Uint8Array(32).fill(2), new Uint8Array(32).fill(22));
   const got = await ks.getKey('default');
   assert.deepEqual(got, new Uint8Array(32).fill(2));
+});
+
+test('deleteKey removes only the requested keyId', async () => {
+  const ks = new EncryptedKeystore(newStorage());
+  await ks.initialize(passphrase);
+  await ks.addKey('one', new Uint8Array(32).fill(1), new Uint8Array(32).fill(11));
+  await ks.addKey('two', new Uint8Array(32).fill(2), new Uint8Array(32).fill(22));
+  assert.equal(await ks.deleteKey('one'), true);
+  assert.equal(await ks.deleteKey('missing'), false);
+  const list = await ks.listKeys();
+  assert.equal(list.length, 1);
+  assert.equal(list[0].keyId, 'two');
 });
 
 test('cannot initialize twice', async () => {
