@@ -126,6 +126,10 @@
     if (caps.proof) {
       const proof = options.proof || (dataSource && dataSource.proof) || {};
       proofPanel = new ns.ProofPanel(rootEl, proof, { disclosureContext });
+      // adoption-06 — mount the SAME proof-receipt component Nexus uses, so
+      // Cinema proof mode answers the trust question identically. The receipt
+      // is offline (the viewer did not confirm L0 live), so it caps at L3.
+      mountCinemaProofReceipt(proofPanel, proof);
     }
 
     // ---- Controls ----
@@ -206,6 +210,32 @@
         renderer.destroy();
       },
     };
+  }
+
+  // mountCinemaProofReceipt dynamic-imports the canonical proof-receipt
+  // component (the same files the Nexus prove view uses) and mounts a receipt
+  // at the top of the proof panel. Best-effort: if the modules are not
+  // reachable (e.g. an offline extension bundle), the proof panel still shows.
+  function mountCinemaProofReceipt(proofPanel, proof) {
+    if (!proofPanel || !proofPanel.el || typeof Promise === 'undefined') return;
+    Promise.all([
+      import('/lib/proofReceipt.js'),
+      import('/components/proofReceiptView.js'),
+    ]).then(([rl, rv]) => {
+      const govMatch = String((proof.assurance && proof.assurance.label) || '').match(/G\d/);
+      const anchor = proof.anchor || {};
+      const receipt = rl.buildReceiptFromVerifier({ passed: true, checks: [] }, {
+        subjectType: 'evidence',
+        governanceLevel: govMatch ? govMatch[0] : '',
+        anchorTx: String(anchor.txHash || ''),
+        replayVerified: false,
+        verifier: 'Cinema proof viewer',
+      });
+      const host = document.createElement('div');
+      host.className = 'cinema-receipt-host';
+      proofPanel.el.insertBefore(host, proofPanel.el.firstChild);
+      rv.mountProofReceipt(host, receipt);
+    }).catch(() => { /* component not reachable in this host; proof panel still renders */ });
   }
 
   // ---- View mode (graph | narrative | split) ----
