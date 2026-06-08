@@ -1,31 +1,32 @@
 /**
- * CinemaWidget - Lightweight Cinema viewer for the extension popup.
- * Shows a Ghost transaction preview before signing.
+ * CinemaWidget — the embed-mode host of the canonical Cinema core.
  *
- * Gap 15 §15 thirteenth-pass closure: /v4/ghost/preview is a gated
- * endpoint that REQUIRES X-Actor / X-Purpose / X-Workflow-Instance
- * request headers (Gap 12 seventh-pass disclosure gate). Constructors
- * accept a `disclosure` object carrying those three values so the
- * widget can project the wallet's ambient identity into each fetch.
- * Without the disclosure context the endpoint responds 400, so the
- * popup MUST pass it in — the widget does not synthesize defaults.
+ * Priority 05 ("one canonical Cinema product surface"): this widget no longer
+ * ships its own renderer. It mounts the shared core (extension/cinema-core, a
+ * byte-identical mirror of pkg/nexus/web/cinema-core synced by
+ * scripts/sync-cinema-core.mjs) in `cinema.embed` mode: read-only, no operator
+ * controls, no raw mutation, disclosure-aware. The Ghost preview is rendered by
+ * the SAME renderer/vocabulary/disclosure code as Nexus and the standalone
+ * product.
+ *
+ * Gap 15 §15 disclosure gate (preserved): /v4/ghost/preview REQUIRES
+ * X-Actor / X-Purpose / X-Workflow-Instance headers, so the constructor still
+ * fails loud on an incomplete disclosure context — the widget never synthesizes
+ * defaults, and the wallet's mistake is surfaced immediately rather than hidden
+ * behind a generic "preview unavailable".
  */
 class CinemaWidget {
     constructor(container, rpcUrl, disclosure) {
-        // Gap 15 §15 fourteenth-pass closure: fail-loud on incomplete
-        // disclosure. The Gap 12 gate on /v4/ghost/preview rejects
-        // with 400 if any of actor / purpose / workflowInstance is
-        // missing; the pre-14 code silently caught that 400 and
-        // rendered "Preview unavailable", hiding the real cause.
-        // Refusing to construct on partial disclosure makes the
-        // upstream caller's mistake visible immediately.
+        // Fail-loud on incomplete disclosure (the Gap 12 gate rejects partial
+        // submissions with 400; refusing to construct makes the caller's
+        // mistake visible immediately).
         if (!disclosure || !disclosure.actor || !disclosure.purpose || !disclosure.workflowInstance) {
             throw new Error('CinemaWidget requires a complete disclosure context {actor, purpose, workflowInstance} — the Gap 12 gate on /v4/ghost/preview rejects partial submissions with 400.');
         }
         this.container = container;
         this.rpcUrl = rpcUrl;
         this.disclosure = disclosure;
-        this.canvas = null;
+        this.cinema = null; // mounted core controller (embed mode)
     }
 
     /** Show a Ghost preview of a transaction before signing. */
@@ -49,7 +50,7 @@ class CinemaWidget {
         this.container.innerHTML = `
             <div class="cinema-widget">
                 <div class="widget-header">Transaction Preview</div>
-                <canvas id="cinema-preview-canvas" width="300" height="180"></canvas>
+                <div id="cinema-embed-mount" style="width:300px;height:180px;position:relative;"></div>
                 <div class="widget-info">
                     <span class="widget-status ${status}">${status.toUpperCase()}</span>
                     <span class="widget-gas">Gas: ${(preview.gasUsed || 0).toLocaleString()}</span>
@@ -58,24 +59,31 @@ class CinemaWidget {
             </div>
         `;
 
-        this.canvas = this.container.querySelector('#cinema-preview-canvas');
-        if (preview.sceneGraph) {
-            this.renderMiniGraph(preview.sceneGraph);
-        } else {
-            this.renderPlaceholder();
+        const mount = this.container.querySelector('#cinema-embed-mount');
+        const core = (typeof window !== 'undefined') && window.InfrixCinema;
+        if (mount && core && typeof core.mountCinema === 'function' && preview.sceneGraph) {
+            // Embed mode: read-only, disclosure-aware. The disclosure context
+            // projects the wallet's identity so any private node the preview
+            // carries is redacted exactly as in Nexus.
+            this.cinema = core.mountCinema({
+                mode: 'cinema.embed',
+                root: mount,
+                scene: preview.sceneGraph,
+                disclosureContext: {
+                    viewerId: this.disclosure.actor,
+                    purpose: this.disclosure.purpose,
+                    workflowInstance: this.disclosure.workflowInstance,
+                },
+            });
+        } else if (mount) {
+            mount.innerHTML = '<div class="widget-info" style="padding:8px">No scene graph in preview.</div>';
         }
     }
 
     async fetchGhostPreview(contractUrl, fn, args) {
-        // Gap 15 closure: /v4/ghost/preview is the canonical
-        // governance-first successor to the deleted legacy ghost-
-        // preview endpoint. Wire shape: { contractUrl, function, args }
-        // in, projected ghost receipt out. See pkg/ghost/api/server.go.
-        //
-        // Gap 12 seventh-pass gate: three disclosure headers are
-        // mandatory. Unconditional assignment — the constructor has
-        // already rejected any incomplete disclosure context, so
-        // every field is guaranteed present and non-empty.
+        // Gap 12 seventh-pass gate: three disclosure headers are mandatory.
+        // Unconditional assignment — the constructor already rejected any
+        // incomplete disclosure context, so every field is present.
         const headers = {
             'Content-Type': 'application/json',
             'X-Actor': this.disclosure.actor,
@@ -91,64 +99,11 @@ class CinemaWidget {
         return resp.json();
     }
 
-    renderMiniGraph(graph) {
-        if (!this.canvas) return;
-        const ctx = this.canvas.getContext('2d');
-        const W = this.canvas.width;
-        const H = this.canvas.height;
-
-        // Background
-        ctx.fillStyle = '#0a0a1a';
-        ctx.fillRect(0, 0, W, H);
-
-        const nodes = graph.nodes || [];
-        const edges = graph.edges || [];
-
-        // Build node map for edge lookup
-        const nodeMap = {};
-        nodes.forEach(n => { nodeMap[n.id] = n; });
-
-        // Draw edges
-        edges.forEach(edge => {
-            const from = nodeMap[edge.fromNodeId];
-            const to = nodeMap[edge.toNodeId];
-            if (!from || !to || !from.position || !to.position) return;
-
-            ctx.beginPath();
-            ctx.moveTo(from.position.x * 0.25 + W/2, from.position.y * 0.25 + H/2);
-            ctx.lineTo(to.position.x * 0.25 + W/2, to.position.y * 0.25 + H/2);
-            ctx.strokeStyle = 'rgba(100,100,200,0.5)';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-        });
-
-        // Draw nodes
-        nodes.forEach(node => {
-            if (!node.position) return;
-            const x = node.position.x * 0.25 + W/2;
-            const y = node.position.y * 0.25 + H/2;
-            const r = Math.max(3, (node.size || 10) * 0.4);
-            const c = node.color || { r: 80, g: 200, b: 120, a: 255 };
-
-            ctx.beginPath();
-            ctx.arc(x, y, r, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(${c.r},${c.g},${c.b},${c.a/255})`;
-            ctx.fill();
-        });
-    }
-
-    renderPlaceholder() {
-        if (!this.canvas) return;
-        const ctx = this.canvas.getContext('2d');
-        ctx.fillStyle = '#0a0a1a';
-        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        ctx.fillStyle = '#333';
-        ctx.font = '12px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('No scene graph data', this.canvas.width/2, this.canvas.height/2);
-    }
-
     clear() {
+        if (this.cinema && typeof this.cinema.destroy === 'function') {
+            try { this.cinema.destroy(); } catch (e) { /* idempotent */ }
+            this.cinema = null;
+        }
         this.container.innerHTML = '';
     }
 }

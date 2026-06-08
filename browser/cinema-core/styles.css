@@ -1,0 +1,219 @@
+/*
+ * Infrix Cinema — canonical layout.
+ *
+ * One stylesheet for every Cinema surface. Layout is mode-driven via the
+ * .cinema-mode-* class mountCinema adds to the root: full/nexus get the full
+ * chrome; embed is chromeless (canvas only); proof adds the proof rail.
+ */
+.cinema-root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  background: var(--cinema-bg);
+  color: var(--cinema-text);
+  font-family: var(--cinema-font-ui);
+}
+
+.cinema-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cinema-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Details panel */
+.cinema-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 300px;
+  max-width: 80%;
+  height: 100%;
+  background: var(--cinema-panel);
+  border-left: 1px solid var(--cinema-border);
+  overflow-y: auto;
+  z-index: 5;
+}
+.cinema-panel.hidden { display: none; }
+.cinema-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--cinema-border);
+  font-weight: 600;
+}
+.cinema-panel-header button {
+  background: none; border: none; color: var(--cinema-muted);
+  font-size: 18px; cursor: pointer; line-height: 1;
+}
+#detail-content { padding: 10px 12px; }
+.cinema-detail-section { margin-bottom: 12px; }
+.cinema-detail-section h4 { margin: 0 0 6px; font-size: 12px; color: var(--cinema-accent); text-transform: uppercase; letter-spacing: 0.04em; }
+.cinema-detail-row { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 2px 0; }
+.cinema-detail-key { color: var(--cinema-muted); }
+.cinema-detail-val { color: var(--cinema-text); font-family: var(--cinema-font-mono); word-break: break-all; text-align: right; }
+
+/* Controls bar */
+.cinema-controls-host { flex: 0 0 auto; }
+.cinema-controls {
+  display: flex; align-items: center; gap: var(--cinema-gap);
+  padding: 6px 10px;
+  background: var(--cinema-panel);
+  border-top: 1px solid var(--cinema-border);
+  flex-wrap: wrap;
+}
+.cinema-btn {
+  background: var(--cinema-panel-2);
+  color: var(--cinema-text);
+  border: 1px solid var(--cinema-border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.cinema-btn:hover { background: var(--cinema-border); }
+.cinema-btn:focus-visible { outline: 2px solid var(--cinema-accent); outline-offset: 1px; }
+.cinema-search {
+  background: var(--cinema-bg);
+  color: var(--cinema-text);
+  border: 1px solid var(--cinema-border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 13px;
+  min-width: 0;
+  flex: 1 1 120px;
+}
+
+/* Status bar */
+.cinema-status {
+  flex: 0 0 auto;
+  display: flex; gap: 16px;
+  padding: 5px 12px;
+  background: var(--cinema-bg-2);
+  border-top: 1px solid var(--cinema-border);
+  font-family: var(--cinema-font-mono);
+  font-size: 11px;
+  color: var(--cinema-muted);
+}
+
+/* Legend */
+.cinema-legend {
+  position: absolute;
+  top: 10px; left: 10px;
+  width: 280px;
+  max-height: calc(100% - 20px);
+  overflow-y: auto;
+  background: rgba(20, 24, 33, 0.95);
+  border: 1px solid var(--cinema-border);
+  border-radius: var(--cinema-radius);
+  padding: 10px 12px;
+  z-index: 6;
+}
+.cinema-legend.hidden { display: none; }
+.cinema-legend h4 { margin: 0 0 4px; font-size: 13px; }
+.cinema-legend-note { margin: 0 0 8px; font-size: 11px; color: var(--cinema-muted); }
+.cinema-legend-row { display: grid; grid-template-columns: 16px 1fr; gap: 6px 8px; align-items: center; padding: 3px 0; font-size: 12px; }
+.cinema-legend-swatch { width: 14px; height: 14px; border-radius: 50%; }
+.cinema-shape-diamond { border-radius: 2px; transform: rotate(45deg); }
+.cinema-shape-rectangle, .cinema-shape-document, .cinema-shape-gate { border-radius: 2px; }
+.cinema-shape-hexagon, .cinema-shape-octagon, .cinema-shape-pentagon { border-radius: 3px; }
+.cinema-legend-label { color: var(--cinema-text); }
+.cinema-legend-hint { grid-column: 2; font-size: 10px; color: var(--cinema-muted); }
+
+/* Proof rail */
+.cinema-proof-panel {
+  flex: 0 0 auto;
+  background: var(--cinema-panel);
+  border-top: 1px solid var(--cinema-border);
+  padding: 10px 14px;
+  max-height: 40%;
+  overflow-y: auto;
+}
+.cinema-proof-head h3 { margin: 0 0 2px; font-size: 14px; }
+.cinema-proof-sub { margin: 0 0 8px; font-size: 11px; color: var(--cinema-muted); }
+.cinema-assurance-badge {
+  display: inline-block;
+  border: 2px solid var(--cinema-anchor);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.cinema-proof-stages { list-style: none; margin: 0; padding: 0; }
+.cinema-proof-stage {
+  display: grid;
+  grid-template-columns: 110px 130px 1fr;
+  gap: 8px;
+  align-items: baseline;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--cinema-border);
+  font-size: 12px;
+}
+.cinema-proof-stage.absent { opacity: 0.45; }
+.cinema-proof-stage-name { font-weight: 600; }
+.cinema-proof-stage-assurance { font-family: var(--cinema-font-mono); font-size: 11px; }
+.cinema-proof-stage-assurance[data-assurance="l0"] { color: var(--cinema-anchor); }
+.cinema-proof-stage-assurance[data-assurance="witness"] { color: var(--cinema-proof-ok); }
+.cinema-proof-stage-assurance[data-assurance="replay"] { color: var(--cinema-accent); }
+.cinema-proof-stage-assurance[data-assurance="offline"] { color: var(--cinema-muted); }
+.cinema-proof-stage-assurance[data-assurance="absent"] { color: var(--cinema-muted); }
+.cinema-proof-stage-note { color: var(--cinema-muted); }
+
+/* Export menu */
+.cinema-export-menu {
+  position: absolute;
+  bottom: 50px; right: 12px;
+  background: var(--cinema-panel);
+  border: 1px solid var(--cinema-border);
+  border-radius: var(--cinema-radius);
+  display: flex; flex-direction: column;
+  z-index: 8;
+  overflow: hidden;
+}
+.cinema-export-item {
+  background: none; border: none; color: var(--cinema-text);
+  text-align: left; padding: 8px 16px; font-size: 13px; cursor: pointer;
+}
+.cinema-export-item:hover { background: var(--cinema-panel-2); }
+
+/* Connect dialog (full mode) */
+.cinema-dialog {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(5, 6, 12, 0.7);
+  z-index: 10;
+}
+.cinema-dialog.hidden { display: none; }
+.cinema-dialog-content {
+  background: var(--cinema-panel);
+  border: 1px solid var(--cinema-border);
+  border-radius: var(--cinema-radius);
+  padding: 20px 24px;
+  width: 420px; max-width: 90%;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.cinema-dialog-content h2 { margin: 0 0 4px; font-size: 16px; }
+.cinema-dialog-content label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--cinema-muted); }
+.cinema-dialog-content input {
+  background: var(--cinema-bg); color: var(--cinema-text);
+  border: 1px solid var(--cinema-border); border-radius: 6px; padding: 6px 8px;
+  font-family: var(--cinema-font-mono); font-size: 12px;
+}
+.cinema-dialog-content button {
+  background: var(--cinema-accent); color: var(--cinema-accent-text);
+  border: none; border-radius: 6px; padding: 8px 14px; font-weight: 600; cursor: pointer;
+}
+
+/* Embed mode is chromeless: just the canvas. */
+.cinema-mode-embed .cinema-stage { height: 100%; }

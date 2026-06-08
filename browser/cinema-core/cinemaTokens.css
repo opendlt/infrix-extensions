@@ -1,0 +1,36 @@
+/*
+ * Infrix Cinema — design tokens.
+ *
+ * The single palette + spacing scale shared by every Cinema surface. Colors
+ * here mirror the scene vocabulary (visualVocabulary.js) status hues so the
+ * chrome agrees with the canvas. Scoped under .cinema-root so a host page's
+ * own theme is never clobbered.
+ */
+.cinema-root {
+  --cinema-bg: #0a0a1a;
+  --cinema-bg-2: #0e0e24;
+  --cinema-panel: #141821;
+  --cinema-panel-2: #1b2030;
+  --cinema-border: #232733;
+  --cinema-text: #d6daea;
+  --cinema-muted: #8b94bd;
+  --cinema-accent: #5cd4e4;
+  --cinema-accent-text: #07212a;
+
+  /* status hues (mirror scene Color* vars) */
+  --cinema-normal: #4caf50;
+  --cinema-throttled: #ffc107;
+  --cinema-paused: #ff9800;
+  --cinema-frozen: #f44336;
+  --cinema-anomaly: #ff5722;
+  --cinema-anchor: #ffd700;
+  --cinema-l0: #009688;
+  --cinema-disclosure: #ffd700;
+  --cinema-proof-ok: #00c853;
+  --cinema-encrypted: #9e9e9e;
+
+  --cinema-radius: 8px;
+  --cinema-gap: 8px;
+  --cinema-font-mono: 'SFMono-Regular', Menlo, Consolas, monospace;
+  --cinema-font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}

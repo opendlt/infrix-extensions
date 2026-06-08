@@ -1,0 +1,64 @@
+/**
+ * Infrix Cinema — timeline adapter.
+ *
+ * Bridges the canonical controls to whatever a data source can offer:
+ *  - live WS sources drive the backend (play/pause/seek over the socket);
+ *  - replay/proof sources re-derive a scene at a block/seq via getStateAt.
+ * Keeps a single notion of "current position / total / speed / playing" so the
+ * scrubber behaves identically in every mode.
+ */
+(function (root) {
+  'use strict';
+  const ns = (root.InfrixCinema = root.InfrixCinema || {});
+
+  class TimelineAdapter {
+    constructor(opts) {
+      this.opts = opts || {};
+      this.dataSource = opts.dataSource;
+      this.renderer = opts.renderer;
+      this.state = { currentSeq: 0, totalSeq: 0, speed: 1, playing: false };
+      this._timer = null;
+    }
+
+    async refresh() {
+      if (!this.dataSource || !this.dataSource.getTimeline) return;
+      const tl = await this.dataSource.getTimeline();
+      if (tl) Object.assign(this.state, tl);
+    }
+
+    togglePlay() { this.state.playing ? this.pause() : this.play(); }
+
+    play() {
+      this.state.playing = true;
+      const caps = this.dataSource.capabilities ? this.dataSource.capabilities() : {};
+      if (caps.live && this.dataSource.client) { this.dataSource.client.play(); return; }
+      // Local replay stepping for proof/replay sources.
+      this._timer = setInterval(() => this.stepForward(), Math.max(150, 600 / (this.state.speed || 1)));
+    }
+    pause() {
+      this.state.playing = false;
+      const caps = this.dataSource.capabilities ? this.dataSource.capabilities() : {};
+      if (caps.live && this.dataSource.client) { this.dataSource.client.pause(); }
+      if (this._timer) { clearInterval(this._timer); this._timer = null; }
+    }
+
+    async stepForward() { await this.seek((this.state.currentSeq || 0) + 1); }
+    async stepBackward() { await this.seek(Math.max(0, (this.state.currentSeq || 0) - 1)); }
+
+    async seek(pos) {
+      this.state.currentSeq = pos;
+      const caps = this.dataSource.capabilities ? this.dataSource.capabilities() : {};
+      if (caps.live && this.dataSource.client) { this.dataSource.client.seek(pos, pos); return; }
+      if (this.dataSource.getStateAt) {
+        const g = await this.dataSource.getStateAt(pos);
+        if (g && this.renderer) this.renderer.setSceneGraph(g);
+      }
+      if (pos >= (this.state.totalSeq || 0) && this._timer) this.pause();
+    }
+
+    destroy() { if (this._timer) clearInterval(this._timer); }
+  }
+
+  ns.TimelineAdapter = TimelineAdapter;
+  if (typeof module !== 'undefined' && module.exports) module.exports = { TimelineAdapter };
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : this));

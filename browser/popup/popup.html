@@ -131,6 +131,24 @@ input:focus { border-color: var(--accent); }
      pkg/debug/api.go::HandleAnalyze. Loading them here makes the
      CinemaWidget / DebugPanel classes globally available to popup.js
      for rendering under each pending request. -->
+<!-- Priority 05: the canonical Cinema core (embed mode host). Loaded before
+     cinema-widget.js so the widget mounts the ONE shared renderer. The
+     cinema-core/ folder is a byte-identical mirror of pkg/nexus/web/cinema-core
+     synced by scripts/sync-cinema-core.mjs (verified by
+     tests/cinema_core_mirror.test.mjs). -->
+<link rel="stylesheet" href="../cinema-core/cinemaTokens.css">
+<link rel="stylesheet" href="../cinema-core/styles.css">
+<script src="../cinema-core/visualVocabulary.js"></script>
+<script src="../cinema-core/disclosureView.js"></script>
+<script src="../cinema-core/renderer.js"></script>
+<script src="../cinema-core/dataSources.js"></script>
+<script src="../cinema-core/detailsPanel.js"></script>
+<script src="../cinema-core/controls.js"></script>
+<script src="../cinema-core/timelineAdapter.js"></script>
+<script src="../cinema-core/legend.js"></script>
+<script src="../cinema-core/exportPanel.js"></script>
+<script src="../cinema-core/proofPanel.js"></script>
+<script src="../cinema-core/app.js"></script>
 <script src="../cinema-widget.js"></script>
 <script src="../debug-panel.js"></script>
 <script src="plan-approval.js"></script>
