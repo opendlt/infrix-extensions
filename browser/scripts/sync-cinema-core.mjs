@@ -32,7 +32,9 @@ const dest = path.join(extensionRoot, 'cinema-core');
 const MIRROR = [
   'visualVocabulary.js', 'disclosureView.js', 'renderer.js', 'dataSources.js',
   'detailsPanel.js', 'controls.js', 'timelineAdapter.js', 'legend.js',
-  'exportPanel.js', 'proofPanel.js', 'app.js',
+  'exportPanel.js', 'proofPanel.js',
+  'narrativeTemplates.js', 'narrativePanel.js', 'narrativeSync.js',
+  'app.js',
   'cinemaTokens.css', 'styles.css',
 ];
 

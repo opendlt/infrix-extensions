@@ -217,3 +217,77 @@
 
 /* Embed mode is chromeless: just the canvas. */
 .cinema-mode-embed .cinema-stage { height: 100%; }
+
+/* adoption-05 — narrative mode (graph | narrative | split). */
+.cinema-body { display: flex; flex: 1 1 auto; min-height: 0; gap: 0; }
+.cinema-body .cinema-stage { flex: 1 1 auto; min-width: 0; }
+.cinema-narrative-panel {
+  flex: 0 0 320px;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid var(--cinema-border, #2a2c4a);
+  background: var(--cinema-panel-bg, #15162b);
+  overflow: hidden;
+}
+.cinema-narrative-head { padding: 10px 12px; border-bottom: 1px solid var(--cinema-border, #2a2c4a); }
+.cinema-narrative-title { margin: 0 0 6px; font-size: 0.95rem; font-weight: 800; }
+.cinema-narrative-receipt { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; font-size: 0.78rem; }
+.cinema-narrative-receipt .cinema-narrative-assurance { font-weight: 800; }
+.cinema-narrative-receipt-note { color: var(--cinema-text-dim, #9aa0c0); }
+.cinema-narrative-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.cinema-narrative-filters { display: flex; flex-wrap: wrap; gap: 4px; }
+.cinema-narrative-filter {
+  font-size: 0.68rem; padding: 2px 8px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--cinema-border, #2a2c4a); background: transparent; color: var(--cinema-text-dim, #9aa0c0);
+}
+.cinema-narrative-filter.active { background: var(--cinema-accent, #6f6bff); color: var(--cinema-accent-text, #fff); border-color: transparent; }
+.cinema-narrative-rawtoggle { display: inline-flex; align-items: center; gap: 5px; font-size: 0.72rem; color: var(--cinema-text-dim, #9aa0c0); cursor: pointer; }
+.cinema-narrative-list { list-style: none; margin: 0; padding: 8px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+.cinema-narrative-card { margin: 0 0 8px; }
+.cinema-narrative-card-btn {
+  display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; cursor: pointer;
+  padding: 10px 11px; border-radius: 8px; border: 1px solid var(--cinema-border, #2a2c4a);
+  background: var(--cinema-card-bg, #1b1d36); color: inherit; font: inherit;
+}
+.cinema-narrative-card-btn:hover { border-color: var(--cinema-accent, #6f6bff); }
+.cinema-narrative-card-btn:focus-visible { outline: 2px solid var(--cinema-accent, #6f6bff); outline-offset: 1px; }
+.cinema-narrative-card.current .cinema-narrative-card-btn { border-color: var(--cinema-accent, #6f6bff); box-shadow: inset 0 0 0 1px var(--cinema-accent, #6f6bff); }
+.cinema-narrative-card.future { opacity: 0.4; }
+.cinema-narrative-card.focused .cinema-narrative-card-btn { box-shadow: 0 0 0 2px var(--cinema-accent, #6f6bff); }
+.cinema-narrative-card-top { display: flex; align-items: center; gap: 8px; }
+.cinema-narrative-stage { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 800; color: var(--cinema-text-dim, #9aa0c0); }
+.cinema-narrative-card .cinema-narrative-assurance { font-size: 0.64rem; font-weight: 800; padding: 1px 6px; border-radius: 999px; background: var(--cinema-chip-bg, #23254a); }
+.cinema-narrative-card .cinema-narrative-assurance[data-assurance="l0"],
+.cinema-narrative-card .cinema-narrative-assurance[data-assurance="witness"] { background: color-mix(in srgb, var(--cinema-accent, #6f6bff) 30%, transparent); }
+.cinema-narrative-status { margin-left: auto; font-size: 0.64rem; color: var(--cinema-text-dim, #9aa0c0); }
+.cinema-narrative-status[data-status="failed"] { color: var(--cinema-danger, #ff6b6b); font-weight: 700; }
+.cinema-narrative-status[data-status="verified"] { color: var(--cinema-ok, #46d39a); }
+.cinema-narrative-headline { font-size: 0.84rem; font-weight: 700; line-height: 1.35; }
+.cinema-narrative-summary { font-size: 0.76rem; color: var(--cinema-text-dim, #9aa0c0); line-height: 1.4; }
+.cinema-narrative-refs { font-size: 0.68rem; color: var(--cinema-text-dim, #9aa0c0); padding: 4px 6px 0; font-family: var(--cinema-mono, monospace); }
+
+/* View-mode toggle (top-left overlay). */
+.cinema-view-toggle {
+  position: absolute; top: 8px; left: 8px; z-index: 6;
+  display: inline-flex; border: 1px solid var(--cinema-border, #2a2c4a); border-radius: 7px; overflow: hidden;
+  background: color-mix(in srgb, var(--cinema-panel-bg, #15162b) 85%, transparent);
+}
+.cinema-view-btn {
+  font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 4px 9px; border: none; background: transparent; color: var(--cinema-text-dim, #9aa0c0); cursor: pointer;
+}
+.cinema-view-btn.active { background: var(--cinema-accent, #6f6bff); color: var(--cinema-accent-text, #fff); }
+
+/* View-mode visibility. */
+.cinema-view-graph .cinema-narrative-panel { display: none; }
+.cinema-view-narrative .cinema-stage { display: none; }
+.cinema-view-narrative .cinema-narrative-panel { flex: 1 1 auto; max-width: none; border-left: none; }
+
+/* Responsive: stack the story under the canvas on narrow widths. */
+@media (max-width: 640px) {
+  .cinema-body { flex-direction: column; }
+  .cinema-narrative-panel { flex: 1 1 auto; max-width: none; border-left: none; border-top: 1px solid var(--cinema-border, #2a2c4a); }
+  .cinema-view-split .cinema-stage { min-height: 180px; }
+}

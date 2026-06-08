@@ -61,8 +61,10 @@
     detailsPanelEl.appendChild(detailsHead); detailsPanelEl.appendChild(detailContent);
     stage.appendChild(detailsPanelEl);
 
-    // Legend mounts into the stage so it overlays.
-    rootEl.appendChild(stage);
+    // Body holds the canvas stage and, in split/narrative view, the audit story.
+    const body = el('div', 'cinema-body');
+    body.appendChild(stage);
+    rootEl.appendChild(body);
 
     // Controls bar (skipped entirely in embed mode).
     const controlsHost = el('div', 'cinema-controls-host');
@@ -93,8 +95,30 @@
     // ---- Data source resolution ----
     let dataSource = options.dataSource || buildDataSource(mode, options, disclosureContext);
 
+    // ---- Narrative (audit story) + sync (adoption-05) ----
+    const proofForNarrative = options.proof || (dataSource && dataSource.proof) || null;
+    let sync = null;
+    const narrative = ns.NarrativePanel
+      ? new ns.NarrativePanel(body, {
+          proof: proofForNarrative,
+          onCardFocus: (ids) => { if (sync) sync.highlightNodes(ids); },
+        })
+      : null;
+    if (narrative && ns.createNarrativeSync) sync = ns.createNarrativeSync({ renderer, panel: narrative });
+
+    // View mode: graph | narrative | split (orthogonal to the host mode). The
+    // toggle is shown wherever there are controls; embed stays canvas-only.
+    let viewMode = resolveViewMode(mode, options);
+    applyViewMode(rootEl, viewMode);
+    if (caps.controls && !caps.readOnly) {
+      buildViewToggle(rootEl, viewMode, (m) => { viewMode = m; applyViewMode(rootEl, m); persistViewMode(mode, m); });
+    }
+
     // ---- Timeline + export ----
-    const timeline = new ns.TimelineAdapter({ dataSource, renderer });
+    const timeline = new ns.TimelineAdapter({
+      dataSource, renderer,
+      onPosition: (pos) => { if (sync) sync.onPosition(pos); },
+    });
     const exporter = new ns.CinemaExport({ renderer, dataSource, mode, commit: options.commit, disclosureContext, timeline });
 
     // ---- Proof panel ----
@@ -127,6 +151,9 @@
     function onScene(g) {
       if (g && g.__update) { renderer.applyUpdate(g.__update); return; }
       renderer.setSceneGraph(g || {});
+      if (narrative) {
+        try { narrative.setScene(g || {}, { proof: options.proof || (dataSource && dataSource.proof) || null }); } catch (e) {}
+      }
     }
 
     function bind(ds) {
@@ -153,19 +180,78 @@
       bind(dataSource);
     }
 
+    // Seed the renderer + narrative from an inline scene (the nexus host and the
+    // embed widget both pass options.scene rather than an async source). Apply
+    // the SAME disclosure filter the data sources use so nothing private leaks
+    // into the canvas or the story.
+    if (options.scene && countNodes(options.scene) > 0) {
+      const safe = ns.applyDisclosure ? ns.applyDisclosure(options.scene, disclosureContext) : options.scene;
+      onScene(safe);
+    }
+
     // Status loop.
     const statusTimer = setInterval(() => updateStatus(renderer, status), 500);
 
     return {
       mode, caps, renderer, get dataSource() { return dataSource; }, timeline, controls, legend, exporter, details, proofPanel,
+      narrative, sync, get viewMode() { return viewMode; },
+      setViewMode(m) { viewMode = m; applyViewMode(rootEl, m); persistViewMode(mode, m); },
       setScene: onScene,
       destroy() {
         try { unsubscribe(); } catch (e) {}
         clearInterval(statusTimer);
         timeline.destroy();
+        if (sync) sync.destroy();
+        if (narrative) narrative.destroy();
         renderer.destroy();
       },
     };
+  }
+
+  // ---- View mode (graph | narrative | split) ----
+  const VIEW_MODES = ['graph', 'narrative', 'split'];
+  const VIEW_KEY = 'cinema.mode';
+
+  function resolveViewMode(mode, options) {
+    if (options.narrativeMode && VIEW_MODES.indexOf(options.narrativeMode) >= 0) return options.narrativeMode;
+    if (mode === 'cinema.embed') return 'graph'; // embed is canvas-first; story is opt-in
+    if (mode === 'cinema.proof') return 'split';
+    // full + nexus: remember the operator's last choice, default to split.
+    const saved = readViewMode();
+    return (saved && VIEW_MODES.indexOf(saved) >= 0) ? saved : 'split';
+  }
+  function readViewMode() { try { return localStorage.getItem(VIEW_KEY); } catch (_) { return null; } }
+  function persistViewMode(mode, m) {
+    if (mode === 'cinema.full' || mode === 'cinema.nexus') { try { localStorage.setItem(VIEW_KEY, m); } catch (_) {} }
+  }
+  function applyViewMode(rootEl, m) {
+    if (VIEW_MODES.indexOf(m) < 0) m = 'split';
+    rootEl.dataset.view = m;
+    for (const x of VIEW_MODES) rootEl.classList.remove('cinema-view-' + x);
+    rootEl.classList.add('cinema-view-' + m);
+  }
+  function buildViewToggle(rootEl, current, onChange) {
+    const wrap = el('div', 'cinema-view-toggle');
+    wrap.setAttribute('role', 'group');
+    wrap.setAttribute('aria-label', 'View mode');
+    const labels = [['graph', 'Graph'], ['narrative', 'Narrative'], ['split', 'Split']];
+    const btns = [];
+    for (const [m, label] of labels) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cinema-view-btn' + (m === current ? ' active' : '');
+      b.dataset.view = m;
+      b.textContent = label;
+      b.setAttribute('aria-pressed', m === current ? 'true' : 'false');
+      b.addEventListener('click', () => {
+        for (const x of btns) { const on = x.dataset.view === m; x.classList.toggle('active', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+        onChange(m);
+      });
+      btns.push(b);
+      wrap.appendChild(b);
+    }
+    rootEl.appendChild(wrap);
+    return wrap;
   }
 
   function buildDataSource(mode, options, disclosureContext) {

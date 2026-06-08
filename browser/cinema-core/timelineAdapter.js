@@ -47,6 +47,11 @@
 
     async seek(pos) {
       this.state.currentSeq = pos;
+      // Notify subscribers (e.g. the narrative panel) of the new replay head so
+      // the audit story dims future events in lockstep with the canvas.
+      if (typeof this.opts.onPosition === 'function') {
+        try { this.opts.onPosition(pos, this.state); } catch (e) {}
+      }
       const caps = this.dataSource.capabilities ? this.dataSource.capabilities() : {};
       if (caps.live && this.dataSource.client) { this.dataSource.client.seek(pos, pos); return; }
       if (this.dataSource.getStateAt) {
