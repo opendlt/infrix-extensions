@@ -216,16 +216,94 @@
     capabilities() { return { live: false, replay: false, controls: false, disclosureAware: true }; }
   }
 
+  // ---- Agent action receipt (nextux-01) ----
+  // Renders an Agent Action Protocol response as a short narrative scene:
+  // what the agent requested, what was approved, what the system executed, the
+  // proof/verification result, and — when the safety gate refused — exactly
+  // where the agent was prevented from doing something unsafe. This turns agent
+  // safety from an invisible guardrail into a visible trust feature.
+  const AGENT_COLORS = {
+    info: { r: 88, g: 166, b: 255, a: 255 },
+    ok: { r: 63, g: 185, b: 80, a: 255 },
+    warn: { r: 210, g: 153, b: 34, a: 255 },
+    fail: { r: 248, g: 81, b: 73, a: 255 },
+    dim: { r: 139, g: 148, b: 158, a: 255 },
+  };
+  class AgentCinemaDataSource extends CinemaDataSource {
+    constructor(opts) {
+      super(opts);
+      this.response = (opts && (opts.response || opts.receipt)) || {};
+      this.request = (opts && opts.request) || {};
+    }
+    _buildScene() {
+      const resp = this.response;
+      const action = resp.action || this.request.action || 'action';
+      const refusal = (resp.errors || []).find((e) => String(e.code || '').startsWith('AGENT_'));
+      const stages = [];
+
+      // 1. What the agent requested.
+      stages.push({ id: 'agent-request', label: 'Agent requested: ' + action, color: AGENT_COLORS.info });
+
+      // 2. What the user approved (or what was required).
+      if (resp.approvalRequest && !resp.ok) {
+        stages.push({ id: 'approval', label: 'Approval required', color: AGENT_COLORS.warn });
+      } else if (resp.ok) {
+        stages.push({ id: 'approval', label: 'Authorized', color: AGENT_COLORS.ok });
+      } else {
+        stages.push({ id: 'approval', label: 'Not authorized', color: AGENT_COLORS.dim });
+      }
+
+      // 3 + 4. What the system executed + proof/verification.
+      if (resp.ok) {
+        stages.push({ id: 'execution', label: 'System executed', color: AGENT_COLORS.ok });
+        if (resp.assurance) {
+          const a = resp.assurance;
+          const trust = a.trustsInfrixNode ? 'node-trusted' : 'independent';
+          stages.push({
+            id: 'proof',
+            label: 'Proof ' + (a.proofLevel || '—') + '/' + (a.governanceLevel || '—') + ' (' + trust + ')',
+            color: AGENT_COLORS.ok,
+          });
+        }
+      }
+
+      // 5. Where the agent was prevented from doing something unsafe.
+      if (!resp.ok && refusal) {
+        stages.push({ id: 'prevented', label: 'Prevented: ' + refusal.code, color: AGENT_COLORS.fail });
+      }
+
+      const nodes = [];
+      const edges = [];
+      stages.forEach((s, i) => {
+        nodes.push({ id: s.id, label: s.label, size: 14, color: s.color, position: { x: 130 + i * 190, y: 150 } });
+        if (i > 0) {
+          edges.push({ id: 'edge-' + i, fromNodeId: stages[i - 1].id, toNodeId: s.id, label: '', color: s.color, animated: false });
+        }
+      });
+      return { nodes, edges, meta: { source: 'agent', action, ok: !!resp.ok } };
+    }
+    async getScene() { return disclosed(this._buildScene(), this.disclosureContext); }
+    async getDetails(target) {
+      const id = target && (target.id || target.fromId);
+      if (id === 'proof') return this.response.assurance || null;
+      if (id === 'prevented') return (this.response.errors || [])[0] || null;
+      if (id === 'agent-request') return { action: this.response.action, input: this.request.input || null };
+      return null;
+    }
+    async exportSnapshot() { return { graph: await this.getScene(), meta: { source: 'agent', action: this.response.action } }; }
+    capabilities() { return { live: false, replay: false, controls: false, disclosureAware: true }; }
+  }
+
   Object.assign(ns, {
     CinemaWSClient, CinemaDataSource,
     NexusCinemaDataSource, StandaloneCinemaDataSource,
-    ProofCinemaDataSource, EmbedCinemaDataSource,
+    ProofCinemaDataSource, EmbedCinemaDataSource, AgentCinemaDataSource,
     sceneFromMessage,
   });
   const api = {
     CinemaWSClient, CinemaDataSource,
     NexusCinemaDataSource, StandaloneCinemaDataSource,
-    ProofCinemaDataSource, EmbedCinemaDataSource, sceneFromMessage,
+    ProofCinemaDataSource, EmbedCinemaDataSource, AgentCinemaDataSource, sceneFromMessage,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : this));
