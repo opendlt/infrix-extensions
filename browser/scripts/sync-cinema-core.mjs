@@ -4,27 +4,27 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-// Priority 05 — sync the canonical Cinema core into the extension.
+// Sync the canonical Cinema core into the extension from @infrix/cinema-core.
 //
-// The browser extension is a separately-packaged artifact, so it cannot load
-// the core by relative path at runtime. Rather than fork a second renderer,
-// it ships a BYTE-IDENTICAL mirror of pkg/nexus/web/cinema-core, produced by
-// this script and verified by tests/cinema_core_mirror.test.mjs. Run it
-// whenever the canonical core changes:
+// The browser extension is a separately-packaged artifact, so it ships a
+// BYTE-IDENTICAL mirror of the @infrix/cinema-core package (classic scripts +
+// css; the ESM loader.js is excluded — the extension loads the classic scripts
+// directly). Rather than fork a second renderer, it mirrors the canonical core
+// and verifies the copy with tests/cinema_core_mirror.test.mjs — there is
+// exactly one Cinema implementation. Run whenever the package updates:
 //
-//   node extension/scripts/sync-cinema-core.mjs
-//
-// The mirror is the SAME code Nexus, the standalone product, and the portable
-// proof viewer mount — there is exactly one Cinema implementation.
+//   node scripts/sync-cinema-core.mjs
 
 import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
 const extensionRoot = path.dirname(here);
-const repoRoot = path.dirname(extensionRoot);
-const src = path.join(repoRoot, 'pkg', 'nexus', 'web', 'cinema-core');
+// Source of truth: the @infrix/cinema-core package (a devDependency).
+const src = path.dirname(require.resolve('@infrix/cinema-core/package.json'));
 const dest = path.join(extensionRoot, 'cinema-core');
 
 // Only the browser-mountable core (classic scripts + css). The ESM loader.js
@@ -38,8 +38,6 @@ const MIRROR = [
   'cinemaTokens.css', 'styles.css',
 ];
 
-const banner = '/* GENERATED MIRROR — do not edit. Source of truth: pkg/nexus/web/cinema-core.\n   Regenerate with: node extension/scripts/sync-cinema-core.mjs */\n';
-
 await mkdir(dest, { recursive: true });
 let n = 0;
 for (const f of MIRROR) {
@@ -48,14 +46,13 @@ for (const f of MIRROR) {
   await writeFile(path.join(dest, f), body);
   n++;
 }
-process.stderr.write(`[sync-cinema-core] mirrored ${n} files into extension/cinema-core/\n`);
+process.stderr.write(`[sync-cinema-core] mirrored ${n} files from @infrix/cinema-core into cinema-core/\n`);
 
-// Sanity: warn if the source has files the mirror list does not cover.
+// Sanity: warn if the package has browser-mountable files the mirror list omits.
 const present = new Set(await readdir(src));
 for (const f of present) {
   if (f === 'loader.js') continue;
   if ((f.endsWith('.js') || f.endsWith('.css')) && !MIRROR.includes(f)) {
-    process.stderr.write(`[sync-cinema-core] WARNING: ${f} exists in source but is not in the mirror list\n`);
+    process.stderr.write(`[sync-cinema-core] WARNING: ${f} exists in @infrix/cinema-core but is not in the mirror list\n`);
   }
 }
-void banner;

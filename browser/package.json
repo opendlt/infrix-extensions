@@ -4,6 +4,12 @@
   "description": "Infrix browser extension wallet — governance-first ADI wallet, key store, and approval queue. P2-003 release-hardening adds the static + integration test harness.",
   "private": true,
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/opendlt/infrix-extensions.git",
+    "directory": "browser"
+  },
   "engines": {
     "node": ">=20.0.0"
   },
@@ -13,6 +19,10 @@
     "test:provider": "node --test --test-reporter=spec tests/content.test.mjs tests/manifest.test.mjs",
     "test:background": "node --test --test-reporter=spec tests/background.test.mjs",
     "test:integration": "node --test --test-reporter=spec tests/integration.test.mjs",
-    "build": "node ./scripts/lint.mjs && echo Extension is plain JS; no bundler needed for MV3 module workers."
+    "build": "node ./scripts/lint.mjs && echo Extension is plain JS; no bundler needed for MV3 module workers.",
+    "vendor": "node ./scripts/sync-cinema-core.mjs"
+  },
+  "devDependencies": {
+    "@infrix/cinema-core": "^0.1.0"
   }
 }
