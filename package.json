@@ -1,0 +1,14 @@
+{
+  "name": "infrix-extensions",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Editor and browser client surfaces for Infrix: VS Code (infrix-governance, infrix-contracts) and the browser wallet extension (infrix-extension).",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/opendlt/infrix-extensions.git"
+  },
+  "scripts": {
+    "test:fences": "node --test \"fences/*.test.mjs\""
+  }
+}

@@ -1,0 +1,70 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  vscode-governance:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vscode-governance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: vscode-governance/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+  vscode-contracts:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vscode-contracts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: vscode-contracts/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+  browser:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: browser
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # The browser extension has no runtime deps. Its only devDependency is
+      # @infrix/cinema-core, used by the cinema-core drift fence — which SKIPS
+      # when the package is absent. Run the node test suite directly so CI is
+      # green before @infrix/cinema-core is published; once it is, add an
+      # `npm install` step and the drift fence enforces byte-identity.
+      - run: node --test --test-reporter=spec tests/*.test.mjs wallet/*.test.mjs wallet/hardware/*.test.mjs
+
+  fences:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Relocated structural fences (governance, contracts, browser invariants).
+      - run: node --test "fences/*.test.mjs"
+
+# VS Code Marketplace publishing (`vsce publish` for infrix-governance +
+# infrix-contracts, publisher `opendlt`) is a manual operator step until the
+# npm/Marketplace credentials are wired — intentionally not automated here.
