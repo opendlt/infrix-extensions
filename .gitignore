@@ -1,0 +1,12 @@
+# Dependencies + build outputs (regenerated; not committed).
+node_modules/
+**/node_modules/
+out/
+**/out/
+out-tests/
+**/out-tests/
+dist/
+**/dist/
+*.vsix
+*.log
+.DS_Store

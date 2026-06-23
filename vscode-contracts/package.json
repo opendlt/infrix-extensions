@@ -1,9 +1,9 @@
 {
-  "name": "infrix-vscode",
+  "name": "infrix-contracts",
   "displayName": "Infrix Smart Contracts",
   "description": "VS Code extension for governance-first Infrix smart-contract development (intent submission, plan inspection, governed deployment, evidence verification)",
   "version": "0.1.0",
-  "publisher": "accumulate-network",
+  "publisher": "opendlt",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -23,7 +23,8 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/AccumulateNetwork/infrix"
+    "url": "git+https://github.com/opendlt/infrix-extensions.git",
+    "directory": "vscode-contracts"
   },
   "license": "MIT",
   "activationEvents": [

@@ -1,9 +1,15 @@
 {
-  "name": "infrix-vscode",
+  "name": "infrix-governance",
   "displayName": "Infrix Governance Spine",
   "description": "Inspect intents, plans, approvals, and evidence inside VS Code. Drives the canonical /v4 governance API through the wallet's RPC proxy.",
   "version": "0.1.0",
-  "publisher": "infrix",
+  "publisher": "opendlt",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/opendlt/infrix-extensions.git",
+    "directory": "vscode-governance"
+  },
   "private": true,
   "engines": {
     "vscode": "^1.85.0"
