@@ -182,7 +182,9 @@
         blockHeight: c.block,
         actor,
         stage,
-        headline: headline(stage, c),
+        // Honor an optional curated server-supplied headline; fall back to the
+        // template. Never used to leak a redacted value (caller passes safe text).
+        headline: (opts.headlines && opts.headlines[stage]) || headline(stage, c),
         summary: summary(stage, c),
         status,
         assurance: capAssurance(stage, facts),

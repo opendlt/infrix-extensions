@@ -1,0 +1,15 @@
+# The browser extension mirrors @infrix/cinema-core and verifies the copy is
+# byte-identical (after newline normalization). Pin the mirrored assets — and the
+# tooling that generates/checks them — to LF so the working tree matches what the
+# sync writes on every platform, regardless of the developer's core.autocrlf.
+# Without this, autocrlf would check these files out as CRLF on Windows and the
+# drift fence would false-positive against canonical / the LF-normalized mirror.
+browser/cinema-core/**         text eol=lf
+browser/popup/popup.html       text eol=lf
+browser/scripts/*.mjs          text eol=lf
+browser/tests/*.mjs            text eol=lf
+
+# Icons are binary — never normalize.
+*.png binary
+*.jpg binary
+*.ico binary

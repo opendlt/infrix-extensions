@@ -161,6 +161,15 @@
       c.on('scene_graph', (m) => { this._scene = disclosed(sceneFromMessage(m), this.disclosureContext); onScene(this._scene); });
       c.on('scene_update', (m) => { /* renderer.applyUpdate is wired by app */ onScene({ __update: sceneFromMessage(m) }); });
       c.on('timeline_update', (m) => { this._timeline = sceneFromMessage(m); });
+      // Forward connection lifecycle so the host can render loading/error states
+      // (A4). No-op when the host did not pass an onConnectionState callback.
+      const emit = (state, info) => { if (typeof this.opts.onConnectionState === 'function') this.opts.onConnectionState(state, info); };
+      c.on('connected', () => emit('connected'));
+      c.on('reconnecting', (i) => emit('connecting', i));
+      c.on('disconnected', () => emit('connecting'));
+      c.on('error', (i) => emit('error', i));
+      c.on('reconnect_failed', () => emit('error', { fatal: true }));
+      emit('connecting');
       this.discoverSession().then((sid) => { c.connect(); if (sid) c.subscribe(sid); });
       return () => c.disconnect();
     }

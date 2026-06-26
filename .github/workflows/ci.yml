@@ -40,19 +40,37 @@ jobs:
 
   browser:
     runs-on: ubuntu-latest
+    env:
+      # Point the mirror tooling at the canonical repo checked out below, so the
+      # cinema-core drift fence ENFORCES byte-identity independently of whether
+      # @infrix/cinema-core has been published to a registry yet. A bad/missing
+      # path makes vendor:check + the fence fail loudly (resolveSrcForCheck
+      # throws when the env var is set but unresolvable) — never a silent skip.
+      INFRIX_CINEMA_CORE_SRC: ${{ github.workspace }}/.infrix-cinema-core-src
     defaults:
       run:
         working-directory: browser
     steps:
       - uses: actions/checkout@v4
+      # Canonical Cinema source. The invariant CI enforces is "the extension
+      # mirror equals canonical HEAD". If the extension later pins a published
+      # @infrix/cinema-core version instead, replace this checkout with an
+      # `npm install` and drop the env var above.
+      - name: Check out canonical @infrix/cinema-core
+        uses: actions/checkout@v4
+        with:
+          repository: opendlt/infrix-cinema-core
+          path: .infrix-cinema-core-src
+          # For a private canonical repo, set a CINEMA_CORE_TOKEN secret with
+          # read access; for a public repo the default workflow token suffices.
+          token: ${{ secrets.CINEMA_CORE_TOKEN || github.token }}
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      # The browser extension has no runtime deps. Its only devDependency is
-      # @infrix/cinema-core, used by the cinema-core drift fence — which SKIPS
-      # when the package is absent. Run the node test suite directly so CI is
-      # green before @infrix/cinema-core is published; once it is, add an
-      # `npm install` step and the drift fence enforces byte-identity.
+      # Fail the build if browser/cinema-core/ or popup.html drifted from canonical.
+      - run: npm run vendor:check
+      # The drift fence inside the suite also enforces because INFRIX_CINEMA_CORE_SRC
+      # is set (it would otherwise skip when canonical is absent).
       - run: node --test --test-reporter=spec tests/*.test.mjs wallet/*.test.mjs wallet/hardware/*.test.mjs
 
   fences:

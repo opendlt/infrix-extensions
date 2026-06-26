@@ -9,6 +9,8 @@
     "url": "git+https://github.com/opendlt/infrix-extensions.git"
   },
   "scripts": {
-    "test:fences": "node --test \"fences/*.test.mjs\""
+    "test:fences": "node --test \"fences/*.test.mjs\"",
+    "hooks:install": "git config core.hooksPath .githooks",
+    "prepare": "git config core.hooksPath .githooks || true"
   }
 }

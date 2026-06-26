@@ -17,16 +17,36 @@ Each package is self-contained:
 ```bash
 cd vscode-governance && npm install && npm run build && npm test
 cd vscode-contracts  && npm install && npm run build && npm test
-cd browser           && npm install && npm test     # requires @infrix/cinema-core
+cd browser           && npm test     # resolves @infrix/cinema-core from the sibling repo or INFRIX_CINEMA_CORE_SRC
+```
+
+Install the git hook once per clone so the cinema-core mirror is verified before each commit:
+
+```bash
+npm run hooks:install    # from the repo root (sets core.hooksPath)
 ```
 
 ## Cinema
 
 `browser/` does not fork the Cinema renderer — it consumes the canonical
-**`@infrix/cinema-core`** package and keeps a byte-drift-fenced mirror
-(`browser/scripts/sync-cinema-core.mjs` + `browser/tests/cinema_core_mirror.test.mjs`),
-so there is exactly one Cinema implementation across Nexus, the SDK widget, and the
-extension.
+**`@infrix/cinema-core`** package and keeps a byte-drift-fenced mirror in
+`browser/cinema-core/`, so there is exactly one Cinema implementation across Nexus,
+the SDK widget, and the extension.
+
+**Working on Cinema?** Edit the canonical
+[`infrix-cinema-core`](https://github.com/opendlt/infrix-cinema-core) repo — never
+`browser/cinema-core/` (it is generated). Then mirror:
+
+```bash
+cd browser
+npm run vendor         # regenerate cinema-core/ + popup.html load order from canonical
+npm run vendor:check   # fails on any drift (also run by the pre-commit hook and CI)
+```
+
+The mirror is self-maintaining (every mountable canonical module is copied and
+wired into `popup.html` in `loader.js` order, with deletions pruned), enforced by
+`browser/tests/cinema_core_mirror.test.mjs`, the pre-commit hook, and CI. See
+[`browser/cinema-core/README.md`](browser/cinema-core/README.md) for the full ritual.
 
 ## Provenance
 

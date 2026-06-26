@@ -28,16 +28,18 @@
   display: block;
   width: 100%;
   height: 100%;
+  cursor: grab;
+  touch-action: none; /* B2 — own all touch gestures (pan/pinch) */
 }
 
-/* Details panel */
+/* Details panel — docked (F3): a flex column beside the stage, so it never
+ * occludes the node you selected. Becomes a bottom sheet on narrow widths. */
 .cinema-panel {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 300px;
+  position: relative;
+  flex: 0 0 300px;
   max-width: 80%;
-  height: 100%;
+  align-self: stretch;
+  min-height: 0;
   background: var(--cinema-panel);
   border-left: 1px solid var(--cinema-border);
   overflow-y: auto;
@@ -93,6 +95,92 @@
   min-width: 0;
   flex: 1 1 120px;
 }
+
+/* ============================================================
+ * IA pass — overflow menus (View / Ask / More) in the action row.
+ * The action row keeps Play story + Verify + search visible; everything
+ * else lives one click deep in a grouped popover so the bar reads as
+ * intentional instead of a wall of ~30 controls.
+ * ============================================================ */
+.cinema-menu { position: relative; display: inline-flex; }
+/* The menu buttons read obviously as interactive dropdowns: an accent-tinted
+ * border + label, a faint accent fill so they stand off the dark bar, and a
+ * clearly visible caret. They intensify on hover and when open. */
+.cinema-menu-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-weight: 700; letter-spacing: 0.02em;
+  color: var(--cinema-text);
+  background: color-mix(in srgb, var(--cinema-accent) 12%, var(--cinema-panel-2));
+  border-color: color-mix(in srgb, var(--cinema-accent) 55%, var(--cinema-border));
+}
+.cinema-menu-btn:hover {
+  background: color-mix(in srgb, var(--cinema-accent) 24%, var(--cinema-panel-2));
+  border-color: var(--cinema-accent);
+}
+.cinema-menu-btn-compact { padding: 4px 11px; letter-spacing: 0.1em; }
+.cinema-menu-caret { font-size: 10px; color: var(--cinema-accent); opacity: 0.95; }
+.cinema-menu-btn.open {
+  background: color-mix(in srgb, var(--cinema-accent) 28%, var(--cinema-panel-2));
+  border-color: var(--cinema-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cinema-accent) 45%, transparent);
+}
+/* A dot signals a collapsed menu is actively reshaping the scene. */
+.cinema-menu-btn.has-active { position: relative; border-color: color-mix(in srgb, var(--cinema-accent) 55%, var(--cinema-border)); }
+.cinema-menu-btn.has-active::after {
+  content: ''; position: absolute; top: 3px; right: 3px; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--cinema-accent);
+}
+.cinema-menu-panel {
+  position: absolute; bottom: calc(100% + 7px); right: 0; z-index: 20;
+  min-width: 224px; max-width: 320px;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px; border-radius: var(--cinema-radius, 9px);
+  background: var(--cinema-panel); border: 1px solid var(--cinema-border);
+  box-shadow: var(--cinema-shadow-3, 0 16px 48px rgba(0,0,0,0.5));
+}
+.cinema-menu-panel.hidden { display: none; }
+.cinema-menu-section { display: flex; flex-direction: column; gap: 6px; }
+.cinema-menu-section-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--cinema-muted);
+}
+.cinema-menu-row { display: flex; gap: 6px; }
+.cinema-menu-row .cinema-btn { flex: 1 1 0; text-align: center; }
+.cinema-menu-panel .cinema-layout-toggle,
+.cinema-menu-panel .cinema-proj-toggle,
+.cinema-menu-panel .cinema-view-toggle { width: 100%; }
+.cinema-menu-panel .cinema-layout-btn,
+.cinema-menu-panel .cinema-proj-btn { flex: 1 1 0; }
+.cinema-menu-panel .cinema-lens-select { width: 100%; }
+.cinema-menu-panel .cinema-smart-chips { gap: 5px; }
+/* Stacked items (More menu + minimap toggle) read as a vertical list. */
+.cinema-menu-item, .cinema-toggle-btn { width: 100%; text-align: left; }
+.cinema-menu-item:disabled { opacity: 0.45; cursor: default; }
+.cinema-menu-item-active { background: var(--cinema-accent); color: var(--cinema-accent-text); border-color: transparent; }
+.cinema-toggle-btn.active { background: var(--cinema-accent); color: var(--cinema-accent-text); border-color: transparent; }
+.cinema-toggle-btn.active::before { content: '✓ '; }
+
+/* ============================================================
+ * IA pass — one calm top strip (posture + summary + disclosure).
+ * Was three chips floating in three corners; now a single centered row.
+ * ============================================================ */
+.cinema-topbar {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 6;
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
+  gap: 8px; max-width: min(92%, 880px); pointer-events: none;
+}
+.cinema-topbar:empty { display: none; }
+/* Children drop their individual corner-anchoring and sit inline in the row. */
+.cinema-topbar > * {
+  position: static !important; top: auto !important; left: auto !important;
+  right: auto !important; bottom: auto !important; transform: none !important;
+  margin: 0 !important; max-width: none !important; pointer-events: auto;
+}
+.cinema-topbar > .cinema-posture-chip { order: 1; }
+.cinema-topbar > .cinema-summary-ribbon { order: 2; }
+.cinema-topbar > .cinema-disclosure-chip { order: 3; }
+.cinema-disclosure-chip.actionable { cursor: pointer; }
+.cinema-disclosure-chip.actionable:hover { border-color: var(--cinema-accent); }
 
 /* Status bar */
 .cinema-status {
@@ -181,11 +269,19 @@
   z-index: 8;
   overflow: hidden;
 }
-.cinema-export-item {
-  background: none; border: none; color: var(--cinema-text);
-  text-align: left; padding: 8px 16px; font-size: 13px; cursor: pointer;
+.cinema-export-menu { min-width: 240px; }
+.cinema-export-group {
+  padding: 8px 16px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--cinema-muted);
 }
-.cinema-export-item:hover { background: var(--cinema-panel-2); }
+.cinema-export-item {
+  display: flex; flex-direction: column; gap: 1px;
+  background: none; border: none; color: var(--cinema-text);
+  text-align: left; padding: 7px 16px; cursor: pointer;
+}
+.cinema-export-item:hover, .cinema-export-item:focus-visible { background: var(--cinema-panel-2); outline: none; }
+.cinema-export-item-label { font-size: 13px; font-weight: 600; }
+.cinema-export-item-desc { font-size: 11px; color: var(--cinema-muted); }
 
 /* Connect dialog (full mode) */
 .cinema-dialog {
@@ -269,14 +365,14 @@
 .cinema-narrative-refs { font-size: 0.68rem; color: var(--cinema-text-dim, #9aa0c0); padding: 4px 6px 0; font-family: var(--cinema-mono, monospace); }
 
 /* View-mode toggle (top-left overlay). */
+/* View-mode segmented control — lives inside the controls' "View" menu. */
 .cinema-view-toggle {
-  position: absolute; top: 8px; left: 8px; z-index: 6;
   display: inline-flex; border: 1px solid var(--cinema-border, #2a2c4a); border-radius: 7px; overflow: hidden;
-  background: color-mix(in srgb, var(--cinema-panel-bg, #15162b) 85%, transparent);
 }
 .cinema-view-btn {
   font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
-  padding: 4px 9px; border: none; background: transparent; color: var(--cinema-text-dim, #9aa0c0); cursor: pointer;
+  padding: 4px 10px; border: none; background: transparent; color: var(--cinema-text-dim, #9aa0c0); cursor: pointer;
+  flex: 1 1 0;
 }
 .cinema-view-btn.active { background: var(--cinema-accent, #6f6bff); color: var(--cinema-accent-text, #fff); }
 
@@ -289,5 +385,517 @@
 @media (max-width: 640px) {
   .cinema-body { flex-direction: column; }
   .cinema-narrative-panel { flex: 1 1 auto; max-width: none; border-left: none; border-top: 1px solid var(--cinema-border, #2a2c4a); }
+  /* Docked details panel becomes a bottom sheet on narrow widths (F3). */
+  .cinema-panel { flex: 1 1 auto; max-width: none; border-left: none; border-top: 1px solid var(--cinema-border); }
   .cinema-view-split .cinema-stage { min-height: 180px; }
+}
+
+/* ============================================================
+ * Tier A — transport (A2), layout control (A1), state overlay (A4)
+ * ============================================================ */
+
+/* Transport row (scrubber + ticks + time + speed + loop). */
+.cinema-transport {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: var(--cinema-gap, 8px);
+  padding: 7px 12px 9px;
+  background: var(--cinema-panel);
+  border-top: 1px solid var(--cinema-border);
+}
+.cinema-scrubber-wrap { position: relative; flex: 1 1 160px; min-width: 120px; height: 22px; display: flex; align-items: center; }
+.cinema-scrubber {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 5px; border-radius: 999px; margin: 0;
+  background: var(--cinema-panel-2); cursor: pointer; position: relative; z-index: 1;
+}
+.cinema-scrubber:disabled { opacity: 0.4; cursor: default; }
+.cinema-scrubber:focus-visible { outline: 2px solid var(--cinema-accent); outline-offset: 3px; }
+.cinema-scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--cinema-accent); border: 2px solid var(--cinema-bg); cursor: pointer;
+}
+.cinema-scrubber::-moz-range-thumb {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--cinema-accent); border: 2px solid var(--cinema-bg); cursor: pointer;
+}
+/* Event ticks overlaid on the track. */
+.cinema-scrubber-ticks { position: absolute; left: 8px; right: 8px; top: 50%; height: 14px; transform: translateY(-50%); pointer-events: none; z-index: 2; }
+.cinema-tick {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  width: 3px; height: 13px; padding: 0; border: none; border-radius: 2px;
+  background: var(--cinema-muted); cursor: pointer; pointer-events: auto;
+}
+.cinema-tick:hover { height: 16px; }
+.cinema-tick[data-status="failed"] { background: var(--cinema-frozen, #f44336); }
+.cinema-tick[data-status="verified"] { background: var(--cinema-proof-ok, #00c853); }
+.cinema-tick[data-status="passed"] { background: var(--cinema-l0, #009688); }
+.cinema-tick[data-status="pending"] { background: var(--cinema-muted); opacity: 0.7; }
+.cinema-time { font-family: var(--cinema-font-mono); font-size: 11px; color: var(--cinema-muted); white-space: nowrap; min-width: 92px; text-align: right; }
+
+/* Segmented controls (speed + layout) share a look with the view toggle. */
+.cinema-speed, .cinema-layout-toggle {
+  display: inline-flex; border: 1px solid var(--cinema-border); border-radius: 6px; overflow: hidden;
+}
+.cinema-speed-btn, .cinema-layout-btn {
+  font-size: 11px; font-weight: 600; padding: 4px 8px; border: none; background: transparent;
+  color: var(--cinema-muted); cursor: pointer;
+}
+.cinema-speed-btn.active, .cinema-layout-btn.active { background: var(--cinema-accent); color: var(--cinema-accent-text); }
+.cinema-speed-btn:focus-visible, .cinema-layout-btn:focus-visible { outline: 2px solid var(--cinema-accent); outline-offset: -2px; }
+.cinema-btn-loop.active, #cinema-btn-loop.active { background: var(--cinema-accent); color: var(--cinema-accent-text); }
+
+/* State overlay (loading / empty / empty-filter / error). */
+.cinema-state-overlay {
+  position: absolute; inset: 0; z-index: 7;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(10,10,26,0.35), rgba(10,10,26,0.7));
+  pointer-events: auto;
+}
+.cinema-state-overlay.hidden { display: none; }
+.cinema-state-card {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  max-width: 340px; padding: 24px 28px; text-align: center;
+  background: color-mix(in srgb, var(--cinema-panel) 92%, transparent);
+  border: 1px solid var(--cinema-border); border-radius: var(--cinema-radius);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+}
+.cinema-state-icon { font-size: 30px; line-height: 1; color: var(--cinema-accent); opacity: 0.9; }
+.cinema-state-overlay[data-state="error"] .cinema-state-icon { color: var(--cinema-frozen, #f44336); }
+.cinema-state-title { margin: 0; font-size: 15px; font-weight: 700; color: var(--cinema-text); }
+.cinema-state-msg { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--cinema-muted); }
+.cinema-state-action {
+  margin-top: 6px; background: var(--cinema-accent); color: var(--cinema-accent-text);
+  border: none; border-radius: 6px; padding: 7px 16px; font-weight: 600; font-size: 13px; cursor: pointer;
+}
+.cinema-state-action.hidden { display: none; }
+.cinema-state-action:focus-visible { outline: 2px solid var(--cinema-text); outline-offset: 2px; }
+
+/* ============================================================
+ * Tier B — hover tooltip (B1), power search (B4), a11y list (B5)
+ * ============================================================ */
+
+/* Hover tooltip — a lightweight peek card following the cursor. */
+.cinema-tooltip {
+  position: fixed; z-index: 20; pointer-events: none;
+  max-width: 260px; padding: 7px 10px;
+  background: color-mix(in srgb, var(--cinema-panel) 96%, transparent);
+  border: 1px solid var(--cinema-border); border-radius: 7px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  font-size: 12px; color: var(--cinema-text); line-height: 1.4;
+}
+.cinema-tooltip.hidden { display: none; }
+.cinema-tooltip-title { font-weight: 700; }
+.cinema-tooltip-kind { color: var(--cinema-muted); font-size: 11px; text-transform: capitalize; }
+.cinema-tooltip-stat { color: var(--cinema-muted); font-family: var(--cinema-font-mono); font-size: 11px; margin-top: 2px; }
+.cinema-tooltip-note { color: var(--cinema-encrypted, #9e9e9e); font-size: 11px; margin-top: 2px; }
+.cinema-tooltip-chip {
+  display: inline-block; margin-top: 3px; padding: 1px 7px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  background: var(--cinema-panel-2); color: var(--cinema-muted);
+}
+.cinema-tooltip-chip[data-status="frozen"] { background: color-mix(in srgb, var(--cinema-frozen) 30%, transparent); color: #ffd9d4; }
+.cinema-tooltip-chip[data-status="paused"] { background: color-mix(in srgb, var(--cinema-paused) 30%, transparent); color: #ffe6cc; }
+.cinema-tooltip-chip[data-status="throttled"] { background: color-mix(in srgb, var(--cinema-throttled) 30%, transparent); color: #fff3cc; }
+.cinema-tooltip-chip[data-status="anomaly"] { background: color-mix(in srgb, var(--cinema-anomaly) 30%, transparent); color: #ffd9cc; }
+.cinema-tooltip-chip[data-status="private"] { background: var(--cinema-panel-2); color: var(--cinema-encrypted, #9e9e9e); }
+
+/* Power search — input + result count + ‹ › stepper. */
+.cinema-search-wrap { display: inline-flex; align-items: center; gap: 6px; flex: 1 1 200px; min-width: 0; }
+.cinema-search-wrap .cinema-search { flex: 1 1 auto; }
+.cinema-search-count { font-size: 11px; color: var(--cinema-muted); white-space: nowrap; }
+.cinema-search-count.hidden { display: none; }
+.cinema-search-nav { display: inline-flex; gap: 2px; }
+.cinema-search-nav.hidden { display: none; }
+.cinema-search-navbtn { padding: 2px 8px; font-size: 14px; line-height: 1; }
+
+/* Visually-hidden but focusable accessible node list (B5). */
+.sr-only {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+/* When the list receives focus, surface it so sighted keyboard users see it too. */
+.cinema-a11y-list:focus-within, .cinema-a11y-list:focus {
+  position: absolute !important; width: 240px; height: auto; max-height: 50%;
+  clip: auto; margin: 0; left: 10px; bottom: 56px; z-index: 9; overflow-y: auto;
+  background: var(--cinema-panel); border: 1px solid var(--cinema-accent);
+  border-radius: var(--cinema-radius); padding: 6px; white-space: normal;
+}
+.cinema-a11y-option { padding: 4px 8px; font-size: 12px; border-radius: 5px; color: var(--cinema-text); }
+.cinema-a11y-option[aria-selected="true"] { background: var(--cinema-accent); color: var(--cinema-accent-text); }
+
+/* ============================================================
+ * Tier C — Trust Ladder (C1), disclosure (C2), agent ribbon (C3)
+ * ============================================================ */
+
+/* Trust Ladder — the hero assurance display (shared proof + narrative). */
+.cinema-trust-ladder { display: flex; flex-direction: column; gap: 6px; margin: 0 0 10px; }
+.cinema-trust-ladder.compact { gap: 4px; margin-bottom: 8px; }
+.cinema-trust-head { font-size: 12px; font-weight: 800; color: var(--cinema-text); }
+.cinema-trust-head[data-assurance="l0"] { color: var(--cinema-anchor); }
+.cinema-trust-head[data-assurance="witness"] { color: var(--cinema-proof-ok); }
+.cinema-trust-head[data-assurance="replay"] { color: var(--cinema-accent); }
+.cinema-trust-head[data-assurance="offline"] { color: var(--cinema-muted); }
+.cinema-trust-track { display: flex; align-items: center; gap: 0; }
+.cinema-trust-link { flex: 1 1 auto; height: 2px; background: var(--cinema-border); }
+.cinema-trust-link.backed { background: var(--cinema-accent); }
+.cinema-trust-rung {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 3px;
+  background: none; border: none; cursor: pointer; padding: 2px 4px; color: var(--cinema-muted);
+}
+.cinema-trust-rung:focus-visible { outline: 2px solid var(--cinema-accent); outline-offset: 1px; border-radius: 5px; }
+.cinema-trust-dot {
+  width: 13px; height: 13px; border-radius: 50%;
+  border: 2px dashed var(--cinema-border); background: transparent;
+}
+.cinema-trust-rung.backed .cinema-trust-dot { border-style: solid; border-color: var(--cinema-accent); background: var(--cinema-accent); }
+.cinema-trust-rung.ceiling .cinema-trust-dot { box-shadow: 0 0 0 4px color-mix(in srgb, var(--cinema-accent) 35%, transparent); }
+.cinema-trust-rung[data-assurance="l0"].ceiling .cinema-trust-dot,
+.cinema-trust-rung[data-assurance="l0"].backed .cinema-trust-dot { border-color: var(--cinema-anchor); background: var(--cinema-anchor); }
+.cinema-trust-rung[data-assurance="witness"].backed .cinema-trust-dot { border-color: var(--cinema-proof-ok); background: var(--cinema-proof-ok); }
+.cinema-trust-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+.cinema-trust-rung.backed .cinema-trust-label { color: var(--cinema-text); }
+@keyframes cinema-trust-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--cinema-anchor) 70%, transparent); }
+  100% { box-shadow: 0 0 0 16px transparent; }
+}
+.cinema-trust-rung.pulse .cinema-trust-dot { animation: cinema-trust-pulse 800ms ease-out 1; }
+
+/* Per-node assurance chip (details + tooltip). */
+.cinema-assurance-chip { padding: 1px 7px; border-radius: 999px; background: var(--cinema-panel-2); font-weight: 700; }
+.cinema-assurance-chip[data-assurance="l0"] { color: var(--cinema-anchor); }
+.cinema-assurance-chip[data-assurance="witness"] { color: var(--cinema-proof-ok); }
+.cinema-assurance-chip[data-assurance="replay"] { color: var(--cinema-accent); }
+.cinema-tooltip-asr { margin-top: 3px; font-size: 10px; font-weight: 700; color: var(--cinema-accent); text-transform: uppercase; letter-spacing: 0.03em; }
+.cinema-tooltip-asr[data-status="l0"] { color: var(--cinema-anchor); }
+.cinema-tooltip-asr[data-status="witness"] { color: var(--cinema-proof-ok); }
+
+/* Disclosure (C2): detail note + scene summary chip. */
+.cinema-detail-note { margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--cinema-muted); }
+.cinema-disclosure-chip {
+  position: absolute; top: 8px; right: 10px; z-index: 6;
+  padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  font-family: inherit; line-height: 1.5;
+  background: color-mix(in srgb, var(--cinema-panel) 90%, transparent);
+  border: 1px solid var(--cinema-disclosure, #ffd700); color: var(--cinema-text);
+}
+.cinema-disclosure-chip.hidden { display: none; }
+
+/* Narrative "what this proves" line (C4). */
+.cinema-narrative-proves { font-size: 0.72rem; color: var(--cinema-accent, #6f6bff); line-height: 1.35; opacity: 0.92; }
+
+/* Agent-stop ribbon (C3): a horizontal stepper terminating in a barrier. */
+.cinema-agent-ribbon {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  z-index: 8; width: min(720px, 92%); padding: 18px 20px;
+  background: color-mix(in srgb, var(--cinema-panel) 96%, transparent);
+  border: 1px solid var(--cinema-border); border-radius: var(--cinema-radius);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+}
+.cinema-agent-ribbon.hidden { display: none; }
+.cinema-agent-head { font-size: 14px; font-weight: 800; margin-bottom: 12px; }
+.cinema-agent-head[data-ok="1"] { color: var(--cinema-proof-ok); }
+.cinema-agent-head[data-ok="0"] { color: var(--cinema-frozen); }
+.cinema-agent-steps { display: flex; align-items: stretch; flex-wrap: wrap; gap: 6px; }
+.cinema-agent-conn { align-self: center; color: var(--cinema-muted); }
+.cinema-agent-step {
+  flex: 1 1 0; min-width: 96px; padding: 9px 10px; border-radius: 7px; font-size: 12px; font-weight: 600;
+  background: var(--cinema-panel-2); border: 1px solid var(--cinema-border); color: var(--cinema-text); text-align: center;
+}
+.cinema-agent-step[data-tone="ok"] { border-color: color-mix(in srgb, var(--cinema-proof-ok) 60%, transparent); }
+.cinema-agent-step[data-tone="warn"] { border-color: color-mix(in srgb, var(--cinema-throttled) 60%, transparent); }
+.cinema-agent-step[data-tone="info"] { border-color: color-mix(in srgb, var(--cinema-accent) 50%, transparent); }
+.cinema-agent-step.barrier {
+  background: color-mix(in srgb, var(--cinema-frozen) 22%, var(--cinema-panel-2));
+  border: 2px solid var(--cinema-frozen); color: #ffe2dd; font-weight: 800;
+  position: relative;
+}
+.cinema-agent-step.barrier::before { content: '⛔ '; }
+.cinema-agent-why { margin: 12px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--cinema-text); }
+.cinema-agent-actions { margin-top: 14px; display: flex; justify-content: flex-end; }
+
+/* ============================================================
+ * Wave G — cinematic autoplay (G1), trust aura (G2), self-explaining (G3)
+ * ============================================================ */
+
+/* Primary action button (Play story). */
+.cinema-btn-primary {
+  background: var(--cinema-accent); color: var(--cinema-accent-text);
+  border-color: transparent; font-weight: var(--cinema-fw-bold, 700);
+}
+.cinema-btn-primary:hover { filter: brightness(1.08); background: var(--cinema-accent); }
+
+/* G1 — cinematic lower-third caption. */
+.cinema-caption {
+  position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%);
+  z-index: 9; max-width: min(720px, 86%); padding: 12px 18px; text-align: center;
+  background: color-mix(in srgb, var(--cinema-panel) 88%, transparent);
+  border: 1px solid var(--cinema-border); border-radius: var(--cinema-radius);
+  box-shadow: var(--cinema-shadow-3); pointer-events: none;
+  animation: cinema-caption-in var(--cinema-dur-base, 240ms) var(--cinema-ease-emphasized, ease);
+}
+.cinema-caption.hidden { display: none; }
+.cinema-caption-headline { font-size: var(--cinema-fs-lg, 16px); font-weight: var(--cinema-fw-black, 800); line-height: 1.3; color: var(--cinema-text); }
+.cinema-caption-proves { margin-top: 4px; font-size: var(--cinema-fs-sm, 12px); color: var(--cinema-accent); }
+@keyframes cinema-caption-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* G2 — trust-posture ambient field (frame-edge aura). */
+.cinema-trust-aura {
+  position: absolute; inset: 0; z-index: 4; pointer-events: none; border-radius: inherit;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cinema-aura-offline) 50%, transparent),
+              inset 0 0 36px 2px color-mix(in srgb, var(--cinema-aura-offline) 22%, transparent);
+  transition: box-shadow var(--cinema-dur-slow, 420ms) var(--cinema-ease-standard, ease);
+}
+.cinema-trust-aura[data-assurance="replay"] { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cinema-aura-replay) 55%, transparent), inset 0 0 40px 2px color-mix(in srgb, var(--cinema-aura-replay) 22%, transparent); }
+.cinema-trust-aura[data-assurance="l0"] { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cinema-aura-l0) 60%, transparent), inset 0 0 44px 3px color-mix(in srgb, var(--cinema-aura-l0) 26%, transparent); }
+.cinema-trust-aura[data-assurance="witness"] { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cinema-aura-witness) 60%, transparent), inset 0 0 44px 3px color-mix(in srgb, var(--cinema-aura-witness) 26%, transparent); }
+.cinema-trust-aura.bloom { animation: cinema-aura-bloom 820ms var(--cinema-ease-standard, ease) 1; }
+@keyframes cinema-aura-bloom {
+  0% { box-shadow: inset 0 0 0 2px var(--cinema-aura-l0), inset 0 0 10px 2px color-mix(in srgb, var(--cinema-aura-l0) 60%, transparent); }
+  100% { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cinema-aura-l0) 60%, transparent), inset 0 0 60px 6px color-mix(in srgb, var(--cinema-aura-l0) 30%, transparent); }
+}
+
+/* G2 — posture chip (top-center). */
+.cinema-posture-chip {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 6;
+  padding: 3px 12px; border-radius: 999px; cursor: pointer;
+  font-size: var(--cinema-fs-xs, 11px); font-weight: var(--cinema-fw-bold, 700);
+  background: color-mix(in srgb, var(--cinema-panel) 90%, transparent);
+  border: 1px solid var(--cinema-aura-offline); color: var(--cinema-text);
+}
+.cinema-posture-chip.hidden { display: none; }
+.cinema-posture-chip[data-assurance="replay"] { border-color: var(--cinema-aura-replay); color: var(--cinema-aura-replay); }
+.cinema-posture-chip[data-assurance="l0"] { border-color: var(--cinema-aura-l0); color: var(--cinema-aura-l0); }
+.cinema-posture-chip[data-assurance="witness"] { border-color: var(--cinema-aura-witness); color: var(--cinema-aura-witness); }
+
+/* G3 — self-explaining scene summary ribbon. */
+.cinema-summary-ribbon {
+  position: absolute; top: 40px; left: 10px; z-index: 6; display: flex; align-items: center; gap: 8px;
+  max-width: 70%; padding: 5px 8px 5px 12px; border-radius: 999px;
+  background: color-mix(in srgb, var(--cinema-panel) 92%, transparent);
+  border: 1px solid var(--cinema-border); box-shadow: var(--cinema-shadow-1);
+}
+.cinema-summary-ribbon.hidden { display: none; }
+.cinema-summary-text { font-size: var(--cinema-fs-sm, 12px); color: var(--cinema-text); }
+.cinema-summary-dismiss { background: none; border: none; color: var(--cinema-muted); font-size: 16px; line-height: 1; cursor: pointer; padding: 0 2px; }
+
+/* G3 — first-run spotlight. */
+.cinema-spotlight { position: absolute; inset: 0; z-index: 11; display: flex; align-items: center; justify-content: center; background: rgba(5, 6, 12, 0.55); }
+.cinema-spotlight-card {
+  max-width: 360px; padding: 22px 24px; text-align: center;
+  background: var(--cinema-panel); border: 1px solid var(--cinema-accent); border-radius: var(--cinema-radius);
+  box-shadow: var(--cinema-shadow-3);
+}
+.cinema-spotlight-title { margin: 0 0 8px; font-size: var(--cinema-fs-lg, 16px); font-weight: var(--cinema-fw-black, 800); }
+.cinema-spotlight-body { margin: 0 0 14px; font-size: var(--cinema-fs-base, 13px); line-height: 1.5; color: var(--cinema-muted); }
+.cinema-spotlight-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 14px; }
+.cinema-spotlight-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cinema-border); }
+.cinema-spotlight-dot.active { background: var(--cinema-accent); }
+.cinema-spotlight-actions { display: flex; gap: 8px; justify-content: center; }
+.cinema-spotlight-skip { background: none; border: 1px solid var(--cinema-border); color: var(--cinema-muted); border-radius: 6px; padding: 6px 14px; cursor: pointer; }
+.cinema-spotlight-next { background: var(--cinema-accent); color: var(--cinema-accent-text); border: none; border-radius: 6px; padding: 6px 16px; font-weight: 600; cursor: pointer; }
+
+/* ============================================================
+ * Wave H — verify-it-yourself theatre (H1), causal trace (H2)
+ * ============================================================ */
+
+/* "Verify" button — the moat. */
+.cinema-btn-verify {
+  background: color-mix(in srgb, var(--cinema-proof-ok) 22%, var(--cinema-panel-2));
+  border-color: color-mix(in srgb, var(--cinema-proof-ok) 60%, transparent);
+  color: var(--cinema-text); font-weight: var(--cinema-fw-bold, 700);
+}
+.cinema-btn-verify:hover { background: color-mix(in srgb, var(--cinema-proof-ok) 32%, var(--cinema-panel-2)); }
+
+/* H1 — verification theatre. */
+.cinema-verify-overlay {
+  position: absolute; inset: 0; z-index: 12; display: flex; align-items: center; justify-content: center;
+  background: rgba(5, 6, 12, 0.62);
+}
+.cinema-verify-card {
+  width: min(560px, 92%); padding: 20px 22px;
+  background: var(--cinema-panel); border: 1px solid var(--cinema-border); border-radius: var(--cinema-radius);
+  box-shadow: var(--cinema-shadow-3);
+}
+.cinema-verify-head { position: relative; margin-bottom: 14px; }
+.cinema-verify-title { margin: 0; font-size: var(--cinema-fs-lg, 16px); font-weight: var(--cinema-fw-black, 800); }
+.cinema-verify-sub { margin: 4px 0 0; font-size: var(--cinema-fs-sm, 12px); color: var(--cinema-muted); }
+.cinema-verify-close { position: absolute; top: -4px; right: -4px; background: none; border: none; color: var(--cinema-muted); font-size: 20px; line-height: 1; cursor: pointer; }
+.cinema-verify-list { list-style: none; margin: 0; padding: 0; }
+.cinema-verify-step {
+  display: grid; grid-template-columns: 22px 1fr auto; grid-template-areas: 'glyph label rung' 'glyph detail detail';
+  gap: 1px 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--cinema-border);
+}
+.cinema-verify-glyph { grid-area: glyph; font-size: 16px; text-align: center; color: var(--cinema-muted); }
+.cinema-verify-step[data-status="running"] .cinema-verify-glyph { color: var(--cinema-accent); animation: cinema-spin 900ms linear infinite; }
+.cinema-verify-step[data-status="passed"] .cinema-verify-glyph { color: var(--cinema-proof-ok); }
+.cinema-verify-step[data-status="failed"] .cinema-verify-glyph { color: var(--cinema-frozen); }
+.cinema-verify-step[data-status="skipped"] { opacity: 0.5; }
+@keyframes cinema-spin { to { transform: rotate(360deg); } }
+.cinema-verify-label { grid-area: label; font-size: var(--cinema-fs-base, 13px); font-weight: 600; }
+.cinema-verify-rung { grid-area: rung; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 7px; border-radius: 999px; background: var(--cinema-panel-2); color: var(--cinema-muted); }
+.cinema-verify-rung[data-assurance="l0"] { color: var(--cinema-anchor); }
+.cinema-verify-rung[data-assurance="witness"] { color: var(--cinema-proof-ok); }
+.cinema-verify-rung[data-assurance="replay"] { color: var(--cinema-accent); }
+.cinema-verify-detail { grid-area: detail; font-size: var(--cinema-fs-xs, 11px); color: var(--cinema-muted); font-family: var(--cinema-font-mono); line-height: 1.4; }
+.cinema-verify-verdict { margin: 14px 0 0; font-size: var(--cinema-fs-base, 13px); font-weight: 700; line-height: 1.5; }
+.cinema-verify-verdict[data-ok="1"] { color: var(--cinema-proof-ok); }
+.cinema-verify-verdict[data-ok="0"] { color: var(--cinema-frozen); }
+
+/* H2 — Trace / Why? action + provenance hops. */
+.cinema-detail-actions { margin-bottom: 10px; }
+.cinema-trace-btn {
+  width: 100%; padding: 7px 10px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: var(--cinema-fs-base, 13px);
+  background: color-mix(in srgb, var(--cinema-anchor) 18%, var(--cinema-panel-2));
+  border: 1px solid color-mix(in srgb, var(--cinema-anchor) 55%, transparent); color: var(--cinema-text);
+}
+.cinema-trace-btn:hover { background: color-mix(in srgb, var(--cinema-anchor) 28%, var(--cinema-panel-2)); }
+.cinema-provenance-hop .cinema-detail-val { color: var(--cinema-anchor); }
+
+/* ============================================================
+ * Wave I — predicted-vs-actual / drift (I1), disclosure dial (I2)
+ * ============================================================ */
+
+/* I1 — drift summary chip + "drift only" toggle. */
+.cinema-drift-chip {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 7;
+  display: flex; align-items: center; gap: 10px; max-width: 86%;
+  padding: 6px 8px 6px 14px; border-radius: 999px;
+  background: color-mix(in srgb, var(--cinema-panel) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cinema-frozen) 45%, var(--cinema-border));
+  box-shadow: var(--cinema-shadow-2);
+}
+.cinema-drift-chip.hidden { display: none; }
+.cinema-drift-text { font-size: var(--cinema-fs-sm, 12px); color: var(--cinema-text); }
+.cinema-drift-only {
+  font-size: var(--cinema-fs-xs, 11px); font-weight: 700; padding: 3px 10px; border-radius: 999px; cursor: pointer;
+  background: transparent; border: 1px solid var(--cinema-border); color: var(--cinema-muted);
+}
+.cinema-drift-only.active { background: var(--cinema-frozen); color: #fff; border-color: transparent; }
+
+/* I2 — disclosure dial (grant preview). Opens on demand from the disclosure
+ * chip in the top strip, dropping just beneath it. */
+.cinema-disclosure-dial {
+  position: absolute; top: 46px; left: 50%; transform: translateX(-50%); z-index: 8;
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap; max-width: min(92%, 520px);
+  padding: 7px 10px; border-radius: var(--cinema-radius);
+  background: var(--cinema-panel);
+  border: 1px solid var(--cinema-disclosure, #ffd700); box-shadow: var(--cinema-shadow-2);
+}
+.cinema-disclosure-dial.hidden { display: none; }
+.cinema-dial-label { font-size: var(--cinema-fs-xs, 11px); color: var(--cinema-muted); }
+.cinema-dial-chip, .cinema-dial-reset {
+  font-size: var(--cinema-fs-xs, 11px); padding: 2px 9px; border-radius: 999px; cursor: pointer;
+  background: var(--cinema-panel-2); border: 1px solid var(--cinema-border); color: var(--cinema-text);
+}
+.cinema-dial-chip.active { background: var(--cinema-disclosure, #ffd700); color: var(--cinema-accent-text); border-color: transparent; }
+
+/* ============================================================
+ * Wave J — vitals (J1), minimap/clusters (J2), timeline instrument (J3),
+ *          projections (J4)
+ * ============================================================ */
+
+/* J1 — vitals strip (replaces the raw status footer). */
+.cinema-vitals { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; width: 100%; }
+.cinema-vital {
+  font-size: var(--cinema-fs-xs, 11px); padding: 2px 9px; border-radius: 999px; white-space: nowrap;
+  background: var(--cinema-panel-2); color: var(--cinema-muted); border: 1px solid transparent;
+}
+button.cinema-vital { cursor: pointer; }
+button.cinema-vital:hover { border-color: var(--cinema-border); }
+.cinema-vital.v-rate { font-family: var(--cinema-font-mono); }
+.cinema-vital.v-throttled { color: var(--cinema-throttled); }
+.cinema-vital.v-paused { color: var(--cinema-paused); }
+.cinema-vital.v-frozen { color: #fff; background: var(--cinema-frozen); }
+.cinema-vital.v-alert { color: #fff; background: var(--cinema-anomaly, #ff5722); }
+.cinema-vital.v-trust[data-assurance="l0"] { color: var(--cinema-anchor); }
+.cinema-vital.v-trust[data-assurance="witness"] { color: var(--cinema-proof-ok); }
+.cinema-vital.v-trust[data-assurance="replay"] { color: var(--cinema-accent); }
+
+/* J2 — minimap (off by default; toggled from the View menu). */
+.cinema-minimap {
+  position: absolute; right: 10px; bottom: 10px; z-index: 6;
+  border: 1px solid var(--cinema-border); border-radius: 6px; box-shadow: var(--cinema-shadow-2); cursor: crosshair;
+}
+.cinema-minimap.hidden { display: none; }
+
+/* J3 — timeline instrument (sits above the scrubber). */
+.cinema-tl-instrument { position: absolute; left: 8px; right: 8px; bottom: 100%; height: 22px; pointer-events: none; }
+.cinema-tl-density { position: absolute; inset: 0 0 8px 0; display: flex; align-items: flex-end; gap: 1px; }
+.cinema-tl-bar { flex: 1 1 0; background: color-mix(in srgb, var(--cinema-accent) 45%, transparent); min-height: 1px; border-radius: 1px 1px 0 0; }
+.cinema-tl-trust { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; border-radius: 2px; overflow: hidden; background: var(--cinema-panel-2); }
+.cinema-tl-seg { position: absolute; top: 0; bottom: 0; }
+.cinema-scrubber-wrap { position: relative; }
+
+/* J4 — projection toggle + canvas overlay. */
+.cinema-proj-toggle { display: inline-flex; border: 1px solid var(--cinema-border); border-radius: 6px; overflow: hidden; }
+.cinema-proj-btn { font-size: 11px; font-weight: 600; padding: 4px 8px; border: none; background: transparent; color: var(--cinema-muted); cursor: pointer; }
+.cinema-proj-btn.active { background: var(--cinema-accent); color: var(--cinema-accent-text); }
+.cinema-projection { position: absolute; inset: 0; z-index: 5; }
+.cinema-projection.hidden { display: none; }
+
+/* ============================================================
+ * Wave K — role lens (K1), smart chips (K2)
+ * ============================================================ */
+
+/* K1 — lens selector. */
+.cinema-lens-wrap { display: inline-flex; align-items: center; gap: 5px; }
+.cinema-lens-label { font-size: var(--cinema-fs-xs, 11px); color: var(--cinema-muted); }
+.cinema-lens-select {
+  background: var(--cinema-panel-2); color: var(--cinema-text);
+  border: 1px solid var(--cinema-border); border-radius: 6px; padding: 3px 8px; font-size: var(--cinema-fs-xs, 11px); cursor: pointer;
+}
+
+/* K2 — smart chips. */
+.cinema-smart-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.cinema-smart-chip {
+  font-size: var(--cinema-fs-xs, 11px); padding: 3px 10px; border-radius: 999px; cursor: pointer;
+  background: transparent; border: 1px solid var(--cinema-border); color: var(--cinema-muted);
+  transition: background var(--cinema-dur-fast) var(--cinema-ease-standard), color var(--cinema-dur-fast);
+}
+.cinema-smart-chip:hover { border-color: var(--cinema-accent); color: var(--cinema-text); }
+.cinema-smart-chip.active { background: var(--cinema-accent); color: var(--cinema-accent-text); border-color: transparent; }
+
+/* ============================================================
+ * Wave L — shareable moment links (L1): copied-toast
+ * ============================================================ */
+.cinema-toast {
+  position: absolute; left: 50%; bottom: 56px; transform: translateX(-50%); z-index: 13;
+  padding: 7px 14px; border-radius: 999px; font-size: var(--cinema-fs-sm, 12px); font-weight: 600;
+  background: var(--cinema-proof-ok, #00c853); color: #04210f; box-shadow: var(--cinema-shadow-2);
+  pointer-events: none;
+}
+.cinema-toast.hidden { display: none; }
+
+/* ============================================================
+ * Tier D — elevation, motion polish, reduced-motion (D1 + D2)
+ * ============================================================ */
+
+/* Depth: flat panels gain elevation so the chrome reads as layered, not painted. */
+.cinema-panel, .cinema-narrative-panel { box-shadow: var(--cinema-shadow-2); }
+.cinema-controls, .cinema-transport { box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.22); }
+.cinema-export-menu, .cinema-tooltip { box-shadow: var(--cinema-shadow-2); }
+.cinema-dialog-content, .cinema-state-card, .cinema-agent-ribbon { box-shadow: var(--cinema-shadow-3); }
+.cinema-legend { box-shadow: var(--cinema-shadow-2); }
+
+/* Premium feel: interactive chrome eases on hover/active instead of snapping. */
+.cinema-btn, .cinema-view-btn, .cinema-speed-btn, .cinema-layout-btn,
+.cinema-trust-rung, .cinema-tick, .cinema-narrative-filter, .cinema-export-item, .cinema-search-navbtn {
+  transition: background var(--cinema-dur-fast) var(--cinema-ease-standard),
+              border-color var(--cinema-dur-fast) var(--cinema-ease-standard),
+              color var(--cinema-dur-fast) var(--cinema-ease-standard);
+}
+.cinema-narrative-card-btn { transition: border-color var(--cinema-dur-fast) var(--cinema-ease-standard), box-shadow var(--cinema-dur-fast) var(--cinema-ease-standard); }
+.cinema-state-action { transition: filter var(--cinema-dur-fast) var(--cinema-ease-standard); }
+.cinema-state-action:hover { filter: brightness(1.08); }
+
+/* Honor reduced-motion across ALL chrome (the canvas honors it in the renderer):
+ * collapse animations + transitions, and kill the trust-rung pulse. */
+@media (prefers-reduced-motion: reduce) {
+  .cinema-root *, .cinema-tooltip, .cinema-state-overlay, .cinema-agent-ribbon {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .cinema-trust-rung.pulse .cinema-trust-dot { animation: none !important; }
 }

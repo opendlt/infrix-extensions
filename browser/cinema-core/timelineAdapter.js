@@ -17,6 +17,7 @@
       this.dataSource = opts.dataSource;
       this.renderer = opts.renderer;
       this.state = { currentSeq: 0, totalSeq: 0, speed: 1, playing: false };
+      this.loop = false;
       this._timer = null;
     }
 
@@ -25,6 +26,19 @@
       const tl = await this.dataSource.getTimeline();
       if (tl) Object.assign(this.state, tl);
     }
+
+    // setTotal lets the host raise the scrubber range to the narrative length
+    // when the data source reports no timeline of its own (static proof scenes).
+    setTotal(n) { if (n != null && n > (this.state.totalSeq || 0)) this.state.totalSeq = n; }
+
+    setSpeed(n) {
+      this.state.speed = n || 1;
+      const caps = this.dataSource && this.dataSource.capabilities ? this.dataSource.capabilities() : {};
+      if (caps.live && this.dataSource.client && this.dataSource.client.setSpeed) this.dataSource.client.setSpeed(this.state.speed);
+      if (this._timer) { clearInterval(this._timer); this._timer = setInterval(() => this.stepForward(), Math.max(120, 600 / (this.state.speed || 1))); }
+    }
+
+    setLoop(on) { this.loop = !!on; }
 
     togglePlay() { this.state.playing ? this.pause() : this.play(); }
 
@@ -58,7 +72,11 @@
         const g = await this.dataSource.getStateAt(pos);
         if (g && this.renderer) this.renderer.setSceneGraph(g);
       }
-      if (pos >= (this.state.totalSeq || 0) && this._timer) this.pause();
+      // At the end: loop back to the start, or stop the local replay timer.
+      if (pos >= (this.state.totalSeq || 0) && this._timer) {
+        if (this.loop) this.seek(0);
+        else this.pause();
+      }
     }
 
     destroy() { if (this._timer) clearInterval(this._timer); }

@@ -22,6 +22,22 @@
     intent: 'Intent', policy: 'Policy', approval: 'Approval', execution: 'Execution',
     outcome: 'Outcome', evidence: 'Evidence', anchor: 'Anchor', witness: 'Witness', disclosure: 'Disclosure',
   };
+  const STAGE_ICON = {
+    intent: '◆', policy: '§', approval: '✔', execution: '⚙', outcome: '●',
+    evidence: '🗎', anchor: '⚓', witness: '👁', disclosure: '🔒',
+  };
+  // "What this proves" — one honest line per spine stage (C4).
+  const STAGE_PROVES = {
+    intent: 'a governed flow was opened by a named requester.',
+    policy: 'the request was checked against an explicit rule before it ran.',
+    approval: 'the approval is bound to the exact plan that executed.',
+    execution: 'the governed steps ran (or halted) deterministically.',
+    outcome: 'the committed result is the one the plan produced.',
+    evidence: 'a portable bundle binds the plan, outcome, policy, and proof.',
+    anchor: 'the evidence commitment is independently verifiable on L0.',
+    witness: 'independent witnesses re-derived and signed the outcome.',
+    disclosure: 'only the disclosed fields are visible; the rest stay sealed.',
+  };
   const ASSURANCE_LABEL = { offline: 'offline', replay: 'replay', l0: 'L0', witness: 'witness' };
 
   function elt(tag, cls, text) {
@@ -86,7 +102,7 @@
 
     /** setScene rebuilds the story from a (disclosure-filtered) scene graph. */
     setScene(graph, buildOpts) {
-      const opts = Object.assign({ proof: this.opts.proof }, buildOpts || {});
+      const opts = Object.assign({ proof: this.opts.proof, headlines: this.opts.headlines }, buildOpts || {});
       this.events = (ns.buildNarrative ? ns.buildNarrative(graph, opts) : []) || [];
       this._renderFilters();
       this._renderReceipt();
@@ -97,9 +113,17 @@
     _renderReceipt() {
       const overall = this.events.reduce((acc, e) => (rank(e.assurance) > rank(acc) ? e.assurance : acc), 'offline');
       this.receiptEl.replaceChildren();
-      const badge = elt('span', 'cinema-narrative-assurance', 'Assurance: ' + (ASSURANCE_LABEL[overall] || overall));
-      badge.dataset.assurance = overall;
-      this.receiptEl.appendChild(badge);
+      // Shared Trust Ladder (C1): same component as the proof rail. Use the
+      // bundle's proof when present, else synthesize the ceiling from the
+      // events' computed assurance so the two surfaces always agree.
+      if (ns.TrustLadder) {
+        const proofForLadder = this.opts.proof || { assurance: { id: overall } };
+        this.ladder = new ns.TrustLadder(this.receiptEl, { proof: proofForLadder, compact: true, onRungClick: this.opts.onRungClick });
+      } else {
+        const badge = elt('span', 'cinema-narrative-assurance', 'Assurance: ' + (ASSURANCE_LABEL[overall] || overall));
+        badge.dataset.assurance = overall;
+        this.receiptEl.appendChild(badge);
+      }
       this.receiptEl.appendChild(elt('span', 'cinema-narrative-receipt-note', this.events.length + ' steps — read top to bottom.'));
     }
 
@@ -136,7 +160,7 @@
         btn.setAttribute('aria-label', (STAGE_LABEL[e.stage] || e.stage) + ': ' + e.headline);
 
         const topRow = elt('div', 'cinema-narrative-card-top');
-        topRow.appendChild(elt('span', 'cinema-narrative-stage', STAGE_LABEL[e.stage] || e.stage));
+        topRow.appendChild(elt('span', 'cinema-narrative-stage', (STAGE_ICON[e.stage] ? STAGE_ICON[e.stage] + ' ' : '') + (STAGE_LABEL[e.stage] || e.stage)));
         const a = elt('span', 'cinema-narrative-assurance', ASSURANCE_LABEL[e.assurance] || e.assurance);
         a.dataset.assurance = e.assurance;
         topRow.appendChild(a);
@@ -147,6 +171,7 @@
 
         btn.appendChild(elt('span', 'cinema-narrative-headline', e.headline));
         btn.appendChild(elt('span', 'cinema-narrative-summary', e.summary));
+        if (STAGE_PROVES[e.stage]) btn.appendChild(elt('span', 'cinema-narrative-proves', 'Proves: ' + STAGE_PROVES[e.stage]));
 
         btn.addEventListener('click', () => this._focusCard(e, true));
         li.appendChild(btn);

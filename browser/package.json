@@ -20,7 +20,8 @@
     "test:background": "node --test --test-reporter=spec tests/background.test.mjs",
     "test:integration": "node --test --test-reporter=spec tests/integration.test.mjs",
     "build": "node ./scripts/lint.mjs && echo Extension is plain JS; no bundler needed for MV3 module workers.",
-    "vendor": "node ./scripts/sync-cinema-core.mjs"
+    "vendor": "node ./scripts/sync-cinema-core.mjs",
+    "vendor:check": "node ./scripts/check-cinema-mirror.mjs"
   },
   "devDependencies": {
     "@infrix/cinema-core": "^0.1.0"

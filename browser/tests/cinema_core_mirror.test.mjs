@@ -2,48 +2,53 @@
 //
 // The extension ships a copy of the canonical Cinema core (cinema-core/) so the
 // popup can mount it without a build step. This fence guarantees the copy stays
-// BYTE-IDENTICAL to the @infrix/cinema-core package — exactly one Cinema
-// implementation, no silent drift. If it fails: node scripts/sync-cinema-core.mjs
+// BYTE-IDENTICAL to the @infrix/cinema-core browser-mountable core — exactly one
+// Cinema implementation, no silent drift. If it fails: npm run vendor
 //
-// @infrix/cinema-core is a devDependency. When it is not installed, the byte-drift
-// checks SKIP (the committed mirror still ships and the popup tests exercise it);
-// the drift check enforces once the package is present (CI installs it).
+// The file set and the comparison are DERIVED from the canonical package via the
+// shared manifest (scripts/cinema-mirror-manifest.mjs) — the same module the
+// sync script uses — so the fence and the sync can never disagree about what
+// "the mirror" is. There is no hand-maintained list to fall behind.
+//
+// Source resolution is local-first (INFRIX_CINEMA_CORE_SRC → installed package →
+// sibling working copy). When NONE resolve the byte checks SKIP (the committed
+// mirror still ships and the popup tests exercise it); CI sets
+// INFRIX_CINEMA_CORE_SRC so the fence enforces independently of publishing.
 
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { readFile, readdir, access } from 'node:fs/promises';
-import { createRequire } from 'node:module';
+import { access } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import {
+  resolveSrcForCheck, mirrorDir, computeMirrorPlan, popupBlockStatus,
+} from '../scripts/cinema-mirror-manifest.mjs';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const extensionRoot = path.dirname(here);
-const mirrorDir = path.join(extensionRoot, 'cinema-core');
-
-const require = createRequire(import.meta.url);
-let srcDir = null;
-try {
-  srcDir = path.dirname(require.resolve('@infrix/cinema-core/package.json'));
-} catch {
-  srcDir = null;
-}
-const skip = srcDir ? false : '@infrix/cinema-core not installed — drift check skipped';
-
-const MIRROR = [
-  'visualVocabulary.js', 'disclosureView.js', 'renderer.js', 'dataSources.js',
-  'detailsPanel.js', 'controls.js', 'timelineAdapter.js', 'legend.js',
-  'exportPanel.js', 'proofPanel.js',
-  'narrativeTemplates.js', 'narrativePanel.js', 'narrativeSync.js',
-  'app.js',
-  'cinemaTokens.css', 'styles.css',
-];
+// If INFRIX_CINEMA_CORE_SRC is explicitly set this throws on a bad path (a
+// misconfigured CI fails loudly rather than skipping). Otherwise it is
+// best-effort and an unresolvable source skips the byte checks.
+const resolved = resolveSrcForCheck();
+const skip = resolved
+  ? false
+  : '@infrix/cinema-core not resolvable (no INFRIX_CINEMA_CORE_SRC, package, or sibling repo) — drift check skipped';
 
 test('extension cinema-core mirror is byte-identical to @infrix/cinema-core', { skip }, async () => {
-  for (const f of MIRROR) {
-    const a = await readFile(path.join(srcDir, f));
-    const b = await readFile(path.join(mirrorDir, f));
-    assert.ok(a.equals(b), `cinema-core/${f} drifted from @infrix/cinema-core/${f} — run node scripts/sync-cinema-core.mjs`);
-  }
+  const plan = await computeMirrorPlan(resolved.dir, mirrorDir);
+  assert.deepEqual(
+    plan.add, [],
+    `mirror is MISSING canonical files — run npm run vendor: ${plan.add.join(', ')}`,
+  );
+  assert.deepEqual(
+    plan.update, [],
+    `mirror has DRIFTED from canonical — run npm run vendor: ${plan.update.join(', ')}`,
+  );
+});
+
+test('extension cinema-core mirror ships no files canonical lacks', { skip }, async () => {
+  const plan = await computeMirrorPlan(resolved.dir, mirrorDir);
+  assert.deepEqual(
+    plan.remove, [],
+    `mirror has STALE files canonical no longer ships — run npm run vendor: ${plan.remove.join(', ')}`,
+  );
 });
 
 test('extension does not ship the ESM loader (classic scripts only)', async () => {
@@ -52,9 +57,10 @@ test('extension does not ship the ESM loader (classic scripts only)', async () =
   assert.equal(present, false, 'the extension mirror must not include loader.js (it loads classic scripts directly)');
 });
 
-test('the mirror covers every browser-mountable core file', { skip }, async () => {
-  const srcFiles = (await readdir(srcDir)).filter((f) => (f.endsWith('.js') || f.endsWith('.css')) && f !== 'loader.js');
-  for (const f of srcFiles) {
-    assert.ok(MIRROR.includes(f), `core file ${f} is not in the extension mirror list — add it to sync-cinema-core.mjs + this fence`);
-  }
+test('popup.html loads the full mirrored core in canonical loader order', { skip }, async () => {
+  const status = await popupBlockStatus(resolved.dir);
+  assert.equal(
+    status.current, true,
+    'popup.html cinema-core load block is stale (wrong set or order of scripts) — run npm run vendor',
+  );
 });

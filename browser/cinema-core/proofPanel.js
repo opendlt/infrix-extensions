@@ -65,15 +65,21 @@
       head.appendChild(sub);
       wrap.appendChild(head);
 
-      // Top-level assurance badge (capped at what the bundle backs).
-      const overall = capAssurance('overall', this.proof);
-      const badge = document.createElement('div');
-      badge.className = 'cinema-assurance-badge';
-      badge.id = 'cinema-assurance-overall';
-      badge.dataset.assurance = overall.id;
-      badge.style.borderColor = ns.colorCss ? ns.colorCss(overall.color || {}) : '#888';
-      badge.textContent = 'Assurance: ' + overall.label;
-      wrap.appendChild(badge);
+      // Trust Ladder (C1) — the hero assurance display, shared with the
+      // narrative receipt so every surface tells the same capped story. Falls
+      // back to the single badge only if the component is unavailable.
+      if (ns.TrustLadder) {
+        this.ladder = new ns.TrustLadder(wrap, { proof: this.proof, onRungClick: this.opts.onRungClick });
+      } else {
+        const overall = capAssurance('overall', this.proof);
+        const badge = document.createElement('div');
+        badge.className = 'cinema-assurance-badge';
+        badge.id = 'cinema-assurance-overall';
+        badge.dataset.assurance = overall.id;
+        badge.style.borderColor = ns.colorCss ? ns.colorCss(overall.color || {}) : '#888';
+        badge.textContent = 'Assurance: ' + overall.label;
+        wrap.appendChild(badge);
+      }
 
       const list = document.createElement('ol');
       list.className = 'cinema-proof-stages';

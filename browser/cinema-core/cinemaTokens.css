@@ -29,8 +29,53 @@
   --cinema-proof-ok: #00c853;
   --cinema-encrypted: #9e9e9e;
 
+  /* trust-posture aura hues (Wave G / G2) — mirror the assurance ladder */
+  --cinema-aura-offline: #6b7088;
+  --cinema-aura-replay: #5cd4e4;
+  --cinema-aura-l0: #ffd700;
+  --cinema-aura-witness: #00c853;
+
   --cinema-radius: 8px;
+  --cinema-radius-sm: 6px;
   --cinema-gap: 8px;
   --cinema-font-mono: 'SFMono-Regular', Menlo, Consolas, monospace;
   --cinema-font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* ---- Tier D: intentional design tokens ---- */
+
+  /* type scale */
+  --cinema-fs-xs: 11px;
+  --cinema-fs-sm: 12px;
+  --cinema-fs-base: 13px;
+  --cinema-fs-md: 14px;
+  --cinema-fs-lg: 16px;
+  --cinema-fs-xl: 20px;
+  --cinema-lh-tight: 1.25;
+  --cinema-lh-normal: 1.45;
+  --cinema-fw-normal: 400;
+  --cinema-fw-semibold: 600;
+  --cinema-fw-bold: 700;
+  --cinema-fw-black: 800;
+
+  /* spacing scale (4px base) */
+  --cinema-space-1: 4px;
+  --cinema-space-2: 8px;
+  --cinema-space-3: 12px;
+  --cinema-space-4: 16px;
+  --cinema-space-5: 20px;
+  --cinema-space-6: 24px;
+  --cinema-space-7: 32px;
+  --cinema-space-8: 40px;
+
+  /* elevation */
+  --cinema-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --cinema-shadow-2: 0 6px 18px rgba(0, 0, 0, 0.38);
+  --cinema-shadow-3: 0 16px 48px rgba(0, 0, 0, 0.5);
+
+  /* motion (Tier A; expanded Tier D) */
+  --cinema-dur-fast: 140ms;
+  --cinema-dur-base: 240ms;
+  --cinema-dur-slow: 420ms;
+  --cinema-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --cinema-ease-emphasized: cubic-bezier(0.2, 0, 0, 1.2);
 }

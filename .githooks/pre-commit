@@ -1,0 +1,22 @@
+#!/bin/sh
+# Infrix extensions — pre-commit hook.
+#
+# Guarantees the browser extension's mirrored Cinema core (browser/cinema-core/)
+# and its popup.html load block stay byte-identical to the canonical
+# @infrix/cinema-core BEFORE a commit lands — so "we edited canonical but forgot
+# to re-mirror" can never be committed locally.
+#
+# The check resolves canonical local-first (INFRIX_CINEMA_CORE_SRC → installed
+# package → sibling ../../infrix-cinema-core) and SKIPS gracefully when none is
+# available (e.g. a clone without the sibling repo); CI enforces unconditionally.
+#
+# Install once per clone:  npm run hooks:install   (or: git config core.hooksPath .githooks)
+
+set -e
+
+# Only run when the commit touches the extension or the mirror tooling — keep
+# unrelated commits (docs, the VS Code extensions) fast.
+if git diff --cached --name-only | grep -qE '^browser/(cinema-core/|popup/popup\.html|scripts/(sync-cinema-core|check-cinema-mirror|cinema-mirror-manifest)\.mjs)'; then
+  echo "[pre-commit] verifying cinema-core mirror is in sync with canonical…"
+  node browser/scripts/check-cinema-mirror.mjs
+fi
