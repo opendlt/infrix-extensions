@@ -84,11 +84,11 @@ export class InfrixClient {
         // changing call here flows through governed.submit.
         switch (this.config.network) {
             case 'mainnet':
-                return 'https://mainnet.infrix.io/rpc';
+                return 'https://mainnet.infrix.opendlt.org/rpc';
             case 'testnet':
-                return 'https://testnet.infrix.io/rpc';
+                return 'https://testnet.infrix.opendlt.org/rpc';
             case 'devnet':
-                return 'https://devnet.infrix.io/rpc';
+                return 'https://devnet.infrix.opendlt.org/rpc';
             case 'local':
                 return 'http://localhost:8080/rpc';
             default:
