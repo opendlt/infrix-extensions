@@ -1,6 +1,10 @@
 # Infrix Extensions
 
-Editor and browser client surfaces for [Infrix](https://github.com/opendlt/infrix-accumen),
+> **Infrix — governed, verifiable execution on Accumulate.** New here? Start at
+> [infrix.opendlt.org](https://infrix.opendlt.org) · try it live at
+> [play.infrix.opendlt.org](https://play.infrix.opendlt.org).
+
+Editor and browser client surfaces for [Infrix](https://github.com/opendlt),
 the governance-first execution fabric for Accumulate. Three independently-published
 packages share this repo:
 
