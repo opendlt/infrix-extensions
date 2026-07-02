@@ -24,7 +24,8 @@ import { readFile, writeFile, mkdir, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import {
   resolveSrc, mirrorDir, computeMirrorPlan, normalizeLF,
-  parseLoaderOrder, renderPopupCinemaBlock, replacePopupCinemaBlock, popupHtmlPath,
+  parseLoaderOrder, renderPopupCinemaBlock, replacePopupCinemaBlock,
+  POPUP_BLOCK_BEGIN, cinemaHtmlTargets,
 } from './cinema-mirror-manifest.mjs';
 
 // --dry-run reports every action it would take without writing or deleting
@@ -70,20 +71,27 @@ process.stderr.write(
   `${plan.unchanged.length} unchanged (${plan.want.length} mountable files in canonical)\n`,
 );
 
-// ---- Regenerate the popup.html cinema-core load block from canonical order. ----
-// The set of files is mirrored above; this guarantees popup.html actually LOADS
-// every mirrored module, in the canonical loader's dependency order (app.js
-// last). The block lives between the cinema-core:begin/end markers; everything
-// else in popup.html (the extension's own scripts) is left untouched.
+// ---- Regenerate the cinema-core load block in every host page. ----
+// The set of files is mirrored above; this guarantees each host page (the
+// popup and the expanded console) actually LOADS every mirrored module, in the
+// canonical loader's dependency order (app.js last). The block lives between
+// the cinema-core:begin/end markers; everything else in the page is untouched.
 const order = await parseLoaderOrder(src);
 const block = renderPopupCinemaBlock(order);
-const popupHtml = normalizeLF(await readFile(popupHtmlPath));
-const nextHtml = replacePopupCinemaBlock(popupHtml, block);
-if (nextHtml === popupHtml) {
-  process.stderr.write('[sync-cinema-core] popup.html load block already current\n');
-} else if (DRY_RUN) {
-  process.stderr.write(`[sync-cinema-core]   would update popup.html load block (${order.scripts.length} scripts, ${order.styles.length} styles)\n`);
-} else {
-  await writeFile(popupHtmlPath, nextHtml, 'utf8');
-  process.stderr.write(`[sync-cinema-core] updated popup.html load block (${order.scripts.length} scripts, ${order.styles.length} styles)\n`);
+for (const target of cinemaHtmlTargets()) {
+  const name = path.basename(target);
+  const html = normalizeLF(await readFile(target));
+  if (html.indexOf(POPUP_BLOCK_BEGIN) === -1) {
+    process.stderr.write(`[sync-cinema-core] ${name}: no cinema-core markers — skipped\n`);
+    continue;
+  }
+  const next = replacePopupCinemaBlock(html, block);
+  if (next === html) {
+    process.stderr.write(`[sync-cinema-core] ${name} load block already current\n`);
+  } else if (DRY_RUN) {
+    process.stderr.write(`[sync-cinema-core]   would update ${name} load block (${order.scripts.length} scripts, ${order.styles.length} styles)\n`);
+  } else {
+    await writeFile(target, next, 'utf8');
+    process.stderr.write(`[sync-cinema-core] updated ${name} load block (${order.scripts.length} scripts, ${order.styles.length} styles)\n`);
+  }
 }

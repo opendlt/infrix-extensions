@@ -20,7 +20,7 @@ import { strict as assert } from 'node:assert';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
 import {
-  resolveSrcForCheck, mirrorDir, computeMirrorPlan, popupBlockStatus,
+  resolveSrcForCheck, mirrorDir, computeMirrorPlan, htmlBlocksStatus,
 } from '../scripts/cinema-mirror-manifest.mjs';
 
 // If INFRIX_CINEMA_CORE_SRC is explicitly set this throws on a bad path (a
@@ -57,10 +57,10 @@ test('extension does not ship the ESM loader (classic scripts only)', async () =
   assert.equal(present, false, 'the extension mirror must not include loader.js (it loads classic scripts directly)');
 });
 
-test('popup.html loads the full mirrored core in canonical loader order', { skip }, async () => {
-  const status = await popupBlockStatus(resolved.dir);
+test('cinema host pages load the full mirrored core in canonical loader order', { skip }, async () => {
+  const status = await htmlBlocksStatus(resolved.dir);
   assert.equal(
     status.current, true,
-    'popup.html cinema-core load block is stale (wrong set or order of scripts) — run npm run vendor',
+    'a cinema host page load block is stale (' + status.stale.join(', ') + ') — run npm run vendor',
   );
 });

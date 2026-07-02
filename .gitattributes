@@ -6,8 +6,12 @@
 # drift fence would false-positive against canonical / the LF-normalized mirror.
 browser/cinema-core/**         text eol=lf
 browser/popup/popup.html       text eol=lf
+browser/cinema/console.html    text eol=lf
 browser/scripts/*.mjs          text eol=lf
 browser/tests/*.mjs            text eol=lf
+# Vendored crypto must stay byte-identical to upstream so the pinned SHA-256
+# integrity gate (tests/mnemonic.test.mjs) holds across platforms.
+browser/wallet/vendor/**       text eol=lf
 
 # Icons are binary — never normalize.
 *.png binary

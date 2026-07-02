@@ -21,7 +21,7 @@
 // gate still enforces there regardless of publishing.
 
 import {
-  resolveSrcForCheck, mirrorDir, computeMirrorPlan, planHasDrift, popupBlockStatus,
+  resolveSrcForCheck, mirrorDir, computeMirrorPlan, planHasDrift, htmlBlocksStatus,
 } from './cinema-mirror-manifest.mjs';
 
 // When INFRIX_CINEMA_CORE_SRC is set, resolution must succeed — a bad path
@@ -44,20 +44,20 @@ if (!resolved) {
 }
 
 const plan = await computeMirrorPlan(resolved.dir, mirrorDir);
-const popup = await popupBlockStatus(resolved.dir);
-const drift = planHasDrift(plan) || !popup.current;
+const html = await htmlBlocksStatus(resolved.dir);
+const drift = planHasDrift(plan) || !html.current;
 
 if (drift) {
   process.stderr.write(`[check-cinema-mirror] DRIFT — extension is out of sync with canonical (via ${resolved.via}):\n`);
   for (const f of plan.add) process.stderr.write(`  missing (canonical has, mirror lacks): ${f}\n`);
   for (const f of plan.update) process.stderr.write(`  changed (bytes differ):               ${f}\n`);
   for (const f of plan.remove) process.stderr.write(`  stale   (mirror has, canonical lacks): ${f}\n`);
-  if (!popup.current) process.stderr.write('  popup.html load block does not match the canonical loader order\n');
-  process.stderr.write('\nFix: npm run vendor   (then commit the regenerated cinema-core/ + popup.html)\n');
+  for (const p of html.stale) process.stderr.write(`  host page load block stale:            ${p}\n`);
+  process.stderr.write('\nFix: npm run vendor   (then commit the regenerated cinema-core/ + host pages)\n');
   process.exit(1);
 }
 
 process.stderr.write(
-  `[check-cinema-mirror] OK — cinema-core/ is byte-identical to canonical and popup.html load block is current ` +
-  `(${plan.want.length} files, ${popup.scripts} scripts + ${popup.styles} styles, via ${resolved.via}).\n`,
+  `[check-cinema-mirror] OK — cinema-core/ is byte-identical to canonical and ${html.targets} host page(s) load block is current ` +
+  `(${plan.want.length} files, ${html.scripts} scripts + ${html.styles} styles, via ${resolved.via}).\n`,
 );

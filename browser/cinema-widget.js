@@ -27,6 +27,11 @@ class CinemaWidget {
         this.rpcUrl = rpcUrl;
         this.disclosure = disclosure;
         this.cinema = null; // mounted core controller (embed mode)
+        // Unique mount id per widget instance — several previews can be on
+        // screen at once, and a shared id would put duplicate ids in the
+        // document. querySelector is container-scoped, so this is correctness
+        // of the markup rather than a functional fix.
+        this._mountId = 'cinema-embed-mount-' + (CinemaWidget._seq = (CinemaWidget._seq || 0) + 1);
     }
 
     /** Show a Ghost preview of a transaction before signing. */
@@ -50,7 +55,7 @@ class CinemaWidget {
         this.container.innerHTML = `
             <div class="cinema-widget">
                 <div class="widget-header">Transaction Preview</div>
-                <div id="cinema-embed-mount" style="width:300px;height:180px;position:relative;"></div>
+                <div id="${this._mountId}" style="width:300px;height:180px;position:relative;"></div>
                 <div class="widget-info">
                     <span class="widget-status ${status}">${status.toUpperCase()}</span>
                     <span class="widget-gas">Gas: ${(preview.gasUsed || 0).toLocaleString()}</span>
@@ -59,7 +64,7 @@ class CinemaWidget {
             </div>
         `;
 
-        const mount = this.container.querySelector('#cinema-embed-mount');
+        const mount = this.container.querySelector('#' + this._mountId);
         const core = (typeof window !== 'undefined') && window.InfrixCinema;
         if (mount && core && typeof core.mountCinema === 'function' && preview.sceneGraph) {
             // Embed mode: read-only, disclosure-aware. The disclosure context
