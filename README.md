@@ -8,6 +8,13 @@ Editor and browser client surfaces for [Infrix](https://github.com/opendlt),
 the governance-first execution fabric for Accumulate. Three independently-published
 packages share this repo:
 
+> **Looking to write a plugin / extend execution?** This repo is **editor +
+> wallet clients**, not the plugin system. Execution plugin families and the
+> supported extension seams (Verifier / Adapter / Agent / Confidential
+> registries) live in **`infrix-core/pkg/executor`** — see
+> `infrix-core/docs/plugins/AUTHORING.md` and `docs/plugins/catalog/`, and
+> scaffold with `infrix plugin new`.
+
 | Package | What it is | Distribution |
 | --- | --- | --- |
 | [`vscode-governance/`](vscode-governance) — **`infrix-governance`** | VS Code: **Infrix Governance Spine** — read-only inspection of intents, plans, approvals, and evidence over the `/v4` API | VS Code Marketplace (`vsce publish`, publisher `opendlt`) |
