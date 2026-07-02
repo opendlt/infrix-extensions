@@ -7,13 +7,17 @@
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
+  /* Accent aligned to the canonical Cinema design system (cinemaTokens.css)
+     so the wallet chrome and the embedded Cinema viewer speak one visual
+     language — one accent, not four. */
   --bg: #0f1318;
   --surface: #1a1f28;
   --border: #2a3040;
   --text: #e8ecf0;
   --text-dim: #8892a0;
-  --accent: #6366f1;
-  --accent-light: #818cf8;
+  --accent: #5cd4e4;
+  --accent-light: #8ce8f2;
+  --accent-text: #07212a;
   --success: #10b981;
   --error: #ef4444;
   --font: system-ui, -apple-system, sans-serif;
@@ -21,7 +25,7 @@
 }
 body { font-family: var(--font); background: var(--bg); color: var(--text); width: 360px; min-height: 500px; }
 .header { padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-.logo { font-weight: 800; font-size: 1.1rem; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.logo { font-weight: 800; font-size: 1.1rem; background: linear-gradient(135deg, #5cd4e4, #46d39a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); display: inline-block; }
 .status-dot.disconnected { background: var(--error); }
 .section { padding: 16px; }
@@ -34,7 +38,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); widt
 .key-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--surface); border-radius: 6px; border: 1px solid var(--border); font-size: 0.78rem; }
 .key-hex { font-family: var(--mono); color: var(--accent-light); }
 .btn { padding: 8px 16px; border-radius: 6px; border: none; font-weight: 600; font-size: 0.8rem; cursor: pointer; transition: opacity 0.2s; }
-.btn-primary { background: var(--accent); color: white; }
+.btn-primary { background: var(--accent); color: var(--accent-text); }
 .btn-primary:hover { opacity: 0.9; }
 .btn-danger { background: var(--error); color: white; }
 .btn-sm { padding: 4px 10px; font-size: 0.7rem; }
@@ -73,53 +77,343 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); widt
 .plan-errors { color: var(--error); font-size: 0.7rem; margin-top: 8px; padding: 6px 8px; background: var(--bg); border-radius: 6px; border: 1px solid var(--border); }
 .plan-actions { display: flex; gap: 8px; margin-top: 12px; }
 .plan-actions .btn { flex: 1; padding: 10px 16px; font-size: 0.85rem; }
+/* Approval sheet: embedded Cinema scene + plain-language narrative + cost. */
+.plan-cinema { width: 100%; height: 190px; position: relative; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: #0a0a1a; margin: 6px 0 4px; }
+.plan-cinema-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.66rem; color: var(--text-dim); margin-bottom: 8px; }
+.plan-cinema-expand { background: none; border: none; color: var(--accent); font-size: 0.7rem; font-weight: 600; cursor: pointer; }
+.plan-cinema-expand:hover { text-decoration: underline; }
+.plan-narrative { list-style: none; margin: 4px 0 2px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.plan-narrative li { display: flex; gap: 8px; font-size: 0.8rem; line-height: 1.35; }
+.plan-narrative .pn-n { color: var(--accent-light); font-family: var(--mono); font-size: 0.72rem; min-width: 16px; }
+.plan-lead { font-size: 0.8rem; color: var(--text); line-height: 1.4; margin: 2px 0 8px; }
+.plan-cost { color: var(--accent-light); font-family: var(--mono); }
+.plan-disclosure-note { font-size: 0.66rem; color: var(--text-dim); margin-top: 6px; line-height: 1.4; }
+details.plan-tech > summary { cursor: pointer; font-size: 0.7rem; color: var(--text-dim); margin: 6px 0; list-style: revert; }
+details.plan-tech > summary:hover { color: var(--accent); }
+.plan-signbytes .plan-value { font-size: 0.7rem; }
+.plan-lockstate { font-size: 0.68rem; color: var(--text-dim); margin: 8px 0 2px; font-family: var(--mono); }
+.plan-lockstate.unlocked { color: var(--success); }
 input[type="text"], input[type="password"] { width: 100%; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 0.82rem; outline: none; }
 input:focus { border-color: var(--accent); }
 .footer { padding: 12px 16px; border-top: 1px solid var(--border); font-size: 0.65rem; color: var(--text-dim); text-align: center; }
+/* Inline error banner — replaces native alert() so failures stay in-surface. */
+.error-banner { display: none; margin: 12px 16px 0; padding: 10px 12px; background: rgba(239, 68, 68, 0.12); border: 1px solid var(--error); border-radius: 8px; font-size: 0.78rem; align-items: flex-start; gap: 8px; }
+.error-banner.show { display: flex; }
+.error-banner-msg { flex: 1; color: #fca5a5; word-break: break-word; }
+.error-banner-close { background: none; border: none; color: #fca5a5; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 2px; }
+
+/* ===== Views ===== */
+.view[hidden] { display: none; }
+
+/* ===== Header (network pill + lock) ===== */
+.header-right { display: flex; align-items: center; gap: 8px; }
+.net-pill { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); color: var(--text-dim); border-radius: 999px; padding: 3px 10px; font-size: 0.68rem; cursor: default; font-family: var(--mono); }
+.net-pill .net-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
+.net-pill .net-dot.syncing { background: var(--accent); }
+.net-pill .net-dot.down { background: var(--error); }
+.lock-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px; width: 30px; height: 26px; cursor: pointer; font-size: 0.85rem; }
+.lock-btn:hover { border-color: var(--accent); color: var(--accent); }
+.lock-btn.unlocked { color: var(--success); border-color: var(--success); }
+
+/* ===== Identity card ===== */
+.id-card { display: flex; align-items: center; gap: 12px; margin: 12px 16px; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.id-identicon { width: 40px; height: 40px; flex: 0 0 40px; border-radius: 8px; overflow: hidden; }
+.id-identicon svg { display: block; }
+.id-body { flex: 1; min-width: 0; }
+.id-adi { font-family: var(--mono); font-size: 0.82rem; color: var(--accent-light); word-break: break-all; }
+.id-meta { font-size: 0.66rem; color: var(--text-dim); margin-top: 3px; font-family: var(--mono); }
+.id-lock { color: var(--text-dim); }
+.id-lock.unlocked { color: var(--success); }
+.id-copy { background: none; border: 1px solid var(--border); color: var(--text-dim); width: 30px; height: 30px; border-radius: 6px; cursor: pointer; flex: 0 0 auto; }
+.id-copy:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ===== Unlock bar ===== */
+.unlock-bar { display: flex; gap: 8px; margin: 0 16px 4px; }
+.unlock-bar[hidden] { display: none; }
+.unlock-bar input { flex: 1; }
+
+/* ===== Pending hero ===== */
+.pending-hero { margin: 4px 16px 8px; padding: 12px; background: rgba(255, 193, 7, 0.07); border: 1px solid #ffc107; border-radius: 12px; }
+.ph-title { font-weight: 700; font-size: 0.82rem; color: #ffd479; margin-bottom: 8px; }
+
+/* ===== Tabs ===== */
+.tabs { display: flex; gap: 4px; padding: 4px 16px 0; border-bottom: 1px solid var(--border); }
+.tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-dim); font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 6px; cursor: pointer; }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-panel { padding: 12px 16px; }
+.tab-panel[hidden] { display: none; }
+
+/* ===== Activity feed (the governed-action ledger) ===== */
+.activity-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.link-btn { background: none; border: none; color: var(--accent); font-size: 0.72rem; font-weight: 600; cursor: pointer; }
+.link-btn:hover { text-decoration: underline; }
+.activity-list { display: flex; flex-direction: column; gap: 6px; }
+.activity-row { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 9px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; color: inherit; font: inherit; }
+.activity-row:hover { border-color: var(--accent); }
+.act-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; background: var(--text-dim); }
+.act-dot.ok { background: var(--success); }
+.act-dot.pending { background: #ffc107; }
+.act-dot.failed { background: var(--error); }
+.act-body { flex: 1; min-width: 0; }
+.act-goal { font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.act-meta { font-size: 0.66rem; color: var(--text-dim); margin-top: 2px; font-family: var(--mono); }
+.assurance-badge { font-size: 0.6rem; font-weight: 800; padding: 2px 7px; border-radius: 999px; white-space: nowrap; border: 1px solid var(--border); color: var(--text-dim); }
+.assurance-badge[data-assurance="l0"] { color: #ffd700; border-color: rgba(255,215,0,0.4); }
+.assurance-badge[data-assurance="witness"] { color: #00e676; border-color: rgba(0,200,83,0.4); }
+.assurance-badge[data-assurance="replay"] { color: var(--accent); border-color: rgba(92,212,228,0.4); }
+.assurance-badge[data-assurance="offline"] { color: var(--text-dim); }
+
+/* ===== Onboarding ===== */
+.onb { padding: 28px 22px; }
+.onb-logo { font-weight: 800; font-size: 0.8rem; letter-spacing: 0.12em; background: linear-gradient(135deg, #5cd4e4, #46d39a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.onb-title { font-size: 1.4rem; font-weight: 800; margin-top: 14px; }
+.onb-sub { font-size: 0.82rem; color: var(--text-dim); margin-top: 6px; line-height: 1.45; }
+.onb-label { display: block; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin: 18px 0 6px; }
+.onb-adi { display: flex; align-items: center; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; font-family: var(--mono); font-size: 0.85rem; }
+.onb-adi:focus-within { border-color: var(--accent); }
+.onb-adi input { border: none !important; background: none !important; padding: 10px 2px !important; width: auto !important; flex: 1; }
+.onb-scheme, .onb-suffix { color: var(--text-dim); }
+.onb-hint { font-size: 0.7rem; margin-top: 6px; min-height: 1em; }
+.onb-hint.ok { color: var(--success); }
+.onb-hint.bad { color: var(--error); }
+.onb-strength { height: 4px; border-radius: 2px; background: var(--border); margin-top: 8px; overflow: hidden; }
+.onb-strength > span { display: block; height: 100%; width: 0; transition: width 0.2s, background 0.2s; }
+.onb-cta { width: 100%; margin-top: 22px; padding: 12px; font-size: 0.9rem; }
+.onb-link { display: block; width: 100%; background: none; border: none; color: var(--text-dim); font-size: 0.74rem; margin-top: 12px; cursor: pointer; }
+.onb-link:hover { color: var(--accent); }
+.coachmark { font-size: 0.66rem; color: var(--text-dim); margin-top: 6px; line-height: 1.4; }
+
+/* ===== Backup nudge + settings ===== */
+.nudge { display: none; margin: 0 16px 8px; padding: 9px 12px; background: rgba(255, 193, 7, 0.10); border: 1px solid #ffc107; border-radius: 10px; font-size: 0.74rem; color: #ffd479; cursor: pointer; align-items: center; gap: 8px; line-height: 1.35; }
+.nudge.show { display: flex; }
+.settings-block { margin-bottom: 18px; }
+.settings-block h4 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin-bottom: 8px; }
+.settings-status { font-size: 0.74rem; color: var(--text-dim); margin-bottom: 8px; }
+.settings-status.ok { color: var(--success); }
+.settings-block input[type="file"] { font-size: 0.74rem; color: var(--text-dim); }
+.btn-neutral { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+.btn-neutral:hover { border-color: var(--accent); }
+.settings-select { width: 100%; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.8rem; }
+.settings-select:focus { border-color: var(--accent); outline: none; }
+
+/* ===== Key identity cards (WB-09) ===== */
+.key-card { display: flex; align-items: center; gap: 10px; padding: 9px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; }
+.key-card .key-identicon { width: 32px; height: 32px; flex: 0 0 32px; border-radius: 6px; overflow: hidden; }
+.key-card .key-identicon svg { display: block; }
+.key-card-body { flex: 1; min-width: 0; }
+.key-label { width: 100%; background: none; border: 1px solid transparent; border-radius: 4px; color: var(--text); font-size: 0.82rem; font-weight: 600; padding: 2px 4px; }
+.key-label:hover { border-color: var(--border); }
+.key-label:focus { border-color: var(--accent); background: var(--bg); outline: none; }
+.key-card-meta { font-size: 0.64rem; color: var(--text-dim); font-family: var(--mono); margin-top: 2px; padding-left: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.key-purpose { display: inline-block; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent-light); border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px; margin: 4px 0 0 4px; }
+.key-gen { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+/* ===== Recovery phrase (reveal / verify / settings) ===== */
+.seed-warning { font-size: 0.74rem; color: #ffd479; background: rgba(255,193,7,0.10); border: 1px solid #ffc107; border-radius: 8px; padding: 9px 12px; line-height: 1.4; margin-top: 6px; }
+.seed-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 14px; }
+.seed-word { display: flex; align-items: baseline; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 7px 8px; font-family: var(--mono); font-size: 0.78rem; }
+.seed-word .sw-n { color: var(--text-dim); font-size: 0.66rem; min-width: 16px; text-align: right; }
+.seed-reveal { position: relative; }
+.seed-reveal.blurred .seed-grid { filter: blur(6px); user-select: none; }
+.seed-reveal-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.78rem; color: var(--accent); cursor: pointer; }
+.seed-reveal.blurred .seed-reveal-hint { display: flex; }
+.seed-reveal:not(.blurred) .seed-reveal-hint { display: none; }
+.verify-row { margin-top: 12px; }
+.verify-row label { display: block; font-size: 0.72rem; color: var(--text-dim); margin-bottom: 4px; }
+.seed-input { width: 100%; min-height: 64px; resize: vertical; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--mono); font-size: 0.82rem; padding: 8px 10px; }
+.seed-input:focus { border-color: var(--accent); outline: none; }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <span class="logo">INFRIX</span>
-  <span><span class="status-dot" id="statusDot"></span> <span id="statusLabel" style="font-size:0.75rem;color:var(--text-dim)">Disconnected</span></span>
+<div class="error-banner" id="errorBanner" role="alert" aria-live="assertive">
+  <span class="error-banner-msg" id="errorBannerMsg"></span>
+  <button class="error-banner-close" id="errorBannerClose" aria-label="Dismiss error" type="button">&times;</button>
 </div>
 
-<!-- ADI Section -->
-<div class="section">
-  <div class="section-title">Account</div>
-  <div class="adi-display" id="adiDisplay">No account configured</div>
-  <div class="btn-row">
-    <input type="text" id="adiInput" placeholder="acc://your-name.acme">
-    <button class="btn btn-primary" id="setAdiBtn">Set ADI</button>
-  </div>
-</div>
+<!-- ============================ ONBOARDING (first run) ============================ -->
+<section id="onboardingView" class="view" hidden>
+  <div class="onb">
+    <div class="onb-logo">◆ INFRIX</div>
+    <h1 class="onb-title">Your governed wallet</h1>
+    <p class="onb-sub">See exactly what every action will do — and prove it — before you sign. No other wallet shows you the movie first.</p>
 
-<!-- Keys Section -->
-<div class="section">
-  <div class="section-title">Keys</div>
-  <div class="key-list" id="keyList">
-    <div class="empty">No keys generated</div>
-  </div>
-  <div class="btn-row">
-    <input type="password" id="keyPassphraseInput" placeholder="Passphrase">
-    <button class="btn btn-primary" id="generateKeyBtn">Generate Key</button>
-  </div>
-</div>
+    <div id="onbCreatePane">
+      <label class="onb-label" for="onbName">Pick a name</label>
+      <div class="onb-adi">
+        <span class="onb-scheme">acc://</span>
+        <input id="onbName" type="text" placeholder="alice" autocomplete="off" spellcheck="false">
+        <span class="onb-suffix">.acme</span>
+      </div>
+      <div class="onb-hint" id="onbNameHint"></div>
 
-<!-- Sessions Section -->
-<div class="section">
-  <div class="section-title">Session Keys</div>
-  <div class="sessions-list" id="sessionList">
-    <div class="empty">No active sessions</div>
-  </div>
-</div>
+      <label class="onb-label" for="onbPass">Set a passphrase</label>
+      <input type="password" id="onbPass" placeholder="Encrypts your keys on this device">
+      <input type="password" id="onbPass2" placeholder="Confirm passphrase" style="margin-top:8px">
+      <div class="onb-strength"><span id="onbStrengthBar"></span></div>
+      <div class="onb-hint" id="onbPassHint"></div>
 
-<!-- Pending Approvals -->
-<div class="section" id="pendingSection" style="display:none">
-  <div class="section-title">Pending Approvals</div>
-  <div class="pending-list" id="pendingList"></div>
-</div>
+      <button class="btn btn-primary onb-cta" id="onbCreate" type="button">Create my account</button>
+      <button class="onb-link" id="onbToImport" type="button">Restore from recovery phrase &rarr;</button>
+    </div>
+
+    <!-- Reveal: show the freshly-generated 12-word recovery phrase. -->
+    <div id="onbRevealPane" hidden>
+      <label class="onb-label">Your recovery phrase</label>
+      <div class="seed-warning">Write these 12 words down, in order, and keep them offline. Anyone with them can recover your account; we can never show them to you again without your passphrase.</div>
+      <div class="seed-grid" id="onbSeedGrid"></div>
+      <button class="btn btn-primary onb-cta" id="onbRevealNext" type="button">I&rsquo;ve written them down</button>
+    </div>
+
+    <!-- Verify: re-enter a few words at random positions. -->
+    <div id="onbVerifyPane" hidden>
+      <label class="onb-label">Confirm your phrase</label>
+      <p class="onb-sub" id="onbVerifyPrompt">Enter the requested words to confirm your backup.</p>
+      <div id="onbVerifyInputs"></div>
+      <button class="btn btn-primary onb-cta" id="onbVerifyBtn" type="button">Confirm &amp; finish</button>
+      <button class="onb-link" id="onbVerifyBack" type="button">&larr; Show the phrase again</button>
+    </div>
+
+    <!-- Restore from an existing recovery phrase. -->
+    <div id="onbImportPane" hidden>
+      <label class="onb-label" for="onbImportAdi">Your ADI</label>
+      <div class="onb-adi">
+        <span class="onb-scheme">acc://</span>
+        <input id="onbImportName" type="text" placeholder="alice" autocomplete="off" spellcheck="false">
+        <span class="onb-suffix">.acme</span>
+      </div>
+      <label class="onb-label" for="onbImportPhrase">Recovery phrase</label>
+      <textarea class="seed-input" id="onbImportPhrase" placeholder="your twelve recovery words, separated by spaces" spellcheck="false"></textarea>
+      <label class="onb-label" for="onbImportPass">New passphrase for this device</label>
+      <input type="password" id="onbImportPass" placeholder="Encrypts your restored keys on this device">
+      <button class="btn btn-primary onb-cta" id="onbImportBtn" type="button">Restore my account</button>
+      <button class="onb-link" id="onbToCreate" type="button">&larr; Back</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ DASHBOARD ============================ -->
+<section id="dashboardView" class="view" hidden>
+  <div class="header">
+    <span class="logo">INFRIX</span>
+    <div class="header-right">
+      <span class="net-pill" title="Network"><span class="net-dot" id="netDot"></span><span id="netLabel">connecting…</span></span>
+      <button class="lock-btn" id="lockBtn" type="button" title="Lock signing">&#128274;</button>
+    </div>
+  </div>
+
+  <div class="id-card">
+    <div class="id-identicon" id="idIcon"></div>
+    <div class="id-body">
+      <div class="id-adi" id="idAdi">acc://&hellip;</div>
+      <div class="id-meta"><span id="idKeyMeta">no keys</span> &middot; <span class="id-lock" id="idLock">Locked</span></div>
+    </div>
+    <button class="id-copy" id="idCopy" type="button" title="Copy ADI" aria-label="Copy ADI">&#10696;</button>
+  </div>
+
+  <div class="nudge" id="backupNudge" role="button" tabindex="0">&#9888; Back up your account — without a backup, a forgotten passphrase or lost browser profile means your keys are gone for good.</div>
+
+  <div class="unlock-bar" id="unlockBar">
+    <input type="password" id="keyPassphraseInput" placeholder="Passphrase to unlock signing">
+    <button class="btn btn-primary btn-sm" id="unlockBtn" type="button">Unlock</button>
+  </div>
+
+  <div class="pending-hero" id="pendingHero" style="display:none">
+    <div class="ph-title">&#9888; <span id="phCount">0</span> awaiting your signature</div>
+    <div class="pending-list" id="pendingList"></div>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="activity" role="tab" type="button">Activity</button>
+    <button class="tab" data-tab="keys" role="tab" type="button">Keys</button>
+    <button class="tab" data-tab="sessions" role="tab" type="button">Sessions</button>
+    <button class="tab" data-tab="settings" role="tab" type="button">Settings</button>
+  </div>
+
+  <div class="tab-panel" id="panel-activity" role="tabpanel">
+    <div class="activity-head">
+      <span class="section-title">Governed activity</span>
+      <button class="link-btn" id="openConsole" type="button">&#9166; Expand</button>
+    </div>
+    <div class="activity-list" id="activityList"><div class="empty">No activity yet</div></div>
+  </div>
+
+  <div class="tab-panel" id="panel-keys" role="tabpanel" hidden>
+    <div class="section-title">Signing keys</div>
+    <div class="key-list" id="keyList"><div class="empty">No keys generated</div></div>
+    <div class="key-gen">
+      <input type="text" id="newKeyLabel" placeholder="Name this key (e.g. Trading key)" autocomplete="off">
+      <select id="newKeyPurpose" class="settings-select">
+        <option value="">No specific purpose</option>
+        <option value="trading">Trading</option>
+        <option value="admin">Admin</option>
+        <option value="read-only">Read-only</option>
+      </select>
+      <button class="btn btn-primary" id="generateKeyBtn" type="button">Generate new key</button>
+    </div>
+    <div class="coachmark">Keys are encrypted with your passphrase and never leave this device. On a recovery-phrase account every key is derived from your 12 words.</div>
+  </div>
+
+  <div class="tab-panel" id="panel-sessions" role="tabpanel" hidden>
+    <div class="section-title">Session keys</div>
+    <div class="sessions-list" id="sessionList"><div class="empty">No active sessions</div></div>
+    <div class="coachmark">Session keys let a dApp act within a scope you set, without re-approving every step.</div>
+  </div>
+
+  <div class="tab-panel" id="panel-settings" role="tabpanel" hidden>
+    <div class="settings-block">
+      <h4>Backup</h4>
+      <div class="settings-status" id="backupStatus">Not backed up yet.</div>
+      <div class="btn-row"><button class="btn btn-primary" id="exportBackupBtn" type="button">Export encrypted backup</button></div>
+      <div class="coachmark">The file is encrypted with your passphrase — useless to anyone without it. Store it somewhere safe and off this device.</div>
+    </div>
+    <div class="settings-block">
+      <h4>Restore</h4>
+      <input type="file" id="restoreFileInput" accept="application/json,.json">
+      <div class="restore-confirm" id="restoreConfirm" hidden>
+        <div class="settings-status">A keystore already exists on this device. Replace it with the imported backup?</div>
+        <div class="btn-row">
+          <button class="btn btn-danger btn-sm" id="restoreReplaceBtn" type="button">Replace</button>
+          <button class="btn btn-neutral btn-sm" id="restoreCancelBtn" type="button">Cancel</button>
+        </div>
+      </div>
+      <div class="coachmark">Import a backup file, then unlock with that account's passphrase.</div>
+    </div>
+    <div class="settings-block">
+      <h4>Recovery phrase</h4>
+      <div id="revealPhraseStart">
+        <input type="password" id="revealPhrasePass" placeholder="Passphrase to reveal your 12 words">
+        <div class="btn-row"><button class="btn btn-neutral" id="revealPhraseBtn" type="button">Reveal recovery phrase</button></div>
+        <div class="coachmark">Anyone who sees these words can take your account. Never type them into a website or share a screenshot.</div>
+      </div>
+      <div class="seed-reveal blurred" id="revealPhraseBox" hidden>
+        <div class="seed-grid" id="revealSeedGrid"></div>
+        <div class="seed-reveal-hint" id="revealSeedHint">Tap to reveal</div>
+        <div class="btn-row" style="margin-top:10px"><button class="btn btn-neutral btn-sm" id="revealPhraseHide" type="button">Hide</button></div>
+      </div>
+    </div>
+    <div class="settings-block">
+      <h4>Change passphrase</h4>
+      <input type="password" id="cpCurrent" placeholder="Current passphrase">
+      <input type="password" id="cpNew" placeholder="New passphrase" style="margin-top:8px">
+      <input type="password" id="cpConfirm" placeholder="Confirm new passphrase" style="margin-top:8px">
+      <div class="onb-strength" style="margin-top:8px"><span id="cpStrengthBar"></span></div>
+      <div class="settings-status" id="cpHint"></div>
+      <div class="btn-row"><button class="btn btn-primary" id="cpBtn" type="button">Change passphrase</button></div>
+      <div class="coachmark">Re-encrypts your keys and recovery phrase under the new passphrase. Your recovery phrase itself does not change.</div>
+    </div>
+    <div class="settings-block">
+      <h4>Auto-lock</h4>
+      <div class="settings-status">Lock signing automatically after this much inactivity.</div>
+      <select id="idleTimeoutSelect" class="settings-select">
+        <option value="60000">After 1 minute</option>
+        <option value="900000" selected>After 15 minutes</option>
+        <option value="3600000">After 1 hour</option>
+      </select>
+    </div>
+  </div>
+</section>
 
 <div class="footer">
   Infrix Wallet v0.1.0 &middot; Network: Local Devnet
@@ -176,6 +470,8 @@ input:focus { border-color: var(--accent); }
 <!-- cinema-core:end -->
 <script src="../cinema-widget.js"></script>
 <script src="../debug-panel.js"></script>
+<script src="api.js"></script>
+<script src="signer.js"></script>
 <script src="plan-approval.js"></script>
 <script src="popup.js"></script>
 </body>

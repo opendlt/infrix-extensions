@@ -6,6 +6,7 @@
  */
 
 import { EncryptedKeystore } from './wallet/keystore.js';
+import { generateMnemonic, validateMnemonic, deriveKey } from './wallet/mnemonic.js';
 
 // ---- State ----
 
@@ -16,6 +17,7 @@ let walletState = {
   sessions: [],     // { publicKey: hex, scope: {...}, createdAt: string, usesLeft: number }
   sponsors: [],     // { sponsorAdi: string, ... }
   connected: false,
+  backedUpAt: '',   // ISO timestamp of the last encrypted-backup export ('' = never)
   pendingRequests: new Map(),
 };
 
@@ -37,7 +39,9 @@ function saveState() {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handleMessage(message, sender).then(sendResponse).catch(err => {
-    sendResponse({ error: err.message });
+    // Carry a machine-readable code (e.g. WALLET_LOCKED) so the popup can react
+    // (prompt unlock) rather than just surfacing a string.
+    sendResponse({ error: err.message, code: err.code });
   });
   return true; // Keep the message channel open for async response.
 });
@@ -52,6 +56,14 @@ async function handleMessage(message, sender) {
         connected: walletState.connected,
         keyCount: keys.length,
         sessionCount: walletState.sessions.length,
+        // rpcUrl lets the popup derive the /v4 REST origin for governed
+        // reads (activity, balance, evidence). The popup is an extension
+        // page, so it may fetch the localhost host_permissions origin
+        // directly — the same path the Cinema/Debug widgets already use.
+        rpcUrl: walletState.rpcUrl,
+        // backedUpAt drives the "back up your account" nudge: '' until the user
+        // has exported an encrypted backup at least once.
+        backedUpAt: walletState.backedUpAt || '',
       };
     }
 
@@ -68,48 +80,323 @@ async function handleMessage(message, sender) {
 
     // ---- Key Management ----
     case 'wallet.generateKey': {
+      const ks = getKeystore();
+      // Use the open session if there is one; otherwise a passphrase is required
+      // to unlock (or initialize the first time). No lock afterward — WB-04.
+      if (!ks.isUnlocked()) {
+        await unlockOrInitializeKeystore(ks, requirePassphrase(message.passphrase));
+      }
+      let privateKeyBytes;
+      try {
+        const keyId = message.keyId || newKeyId();
+        let publicKeyBytes;
+        let meta;
+        if (await ks.hasSeed()) {
+          // Seed account: derive the next account index deterministically from
+          // the stored recovery phrase, so every key is recoverable from the
+          // 12 words alone.
+          const mnemonic = await ks.getSeed();
+          const existing = await ks.listKeys();
+          const nextIndex = existing.filter((k) => k.source === 'seed').length;
+          const derived = await deriveKey(mnemonic, '', nextIndex);
+          privateKeyBytes = derived.pkcs8;
+          publicKeyBytes = derived.publicKey;
+          meta = { source: 'seed', derivationPath: derived.path };
+        } else {
+          // Legacy / non-seed account: random Ed25519 key.
+          const generated = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+          privateKeyBytes = new Uint8Array(await crypto.subtle.exportKey('pkcs8', generated.privateKey));
+          publicKeyBytes = new Uint8Array(await crypto.subtle.exportKey('raw', generated.publicKey));
+          meta = { source: 'random', derivationPath: '' };
+        }
+        // Key identity (WB-09): carry the optional human label + purpose.
+        meta.label = typeof message.label === 'string' ? message.label : '';
+        meta.purpose = typeof message.purpose === 'string' ? message.purpose : '';
+        await ks.addKey(keyId, privateKeyBytes, publicKeyBytes, meta);
+        return { keyId, publicKey: bytesToHex(publicKeyBytes), algorithm: 'ed25519' };
+      } finally {
+        if (privateKeyBytes) privateKeyBytes.fill(0);
+      }
+    }
+
+    // ---- Recovery phrase (WB-03) ----
+    case 'wallet.createAccount': {
+      // Onboarding: generate a fresh BIP39 phrase, store it (encrypted), derive
+      // key #0, and return the phrase ONCE for the reveal-and-verify screen.
       const passphrase = requirePassphrase(message.passphrase);
+      const adi = message.adi;
+      if (!adi) return { error: 'adi required' };
       const ks = getKeystore();
       await unlockOrInitializeKeystore(ks, passphrase);
       try {
-        const generated = await crypto.subtle.generateKey(
-          { name: 'Ed25519' },
-          true,
-          ['sign', 'verify'],
-        );
-        const privateKeyBytes = new Uint8Array(await crypto.subtle.exportKey('pkcs8', generated.privateKey));
-        const publicKeyBytes = new Uint8Array(await crypto.subtle.exportKey('raw', generated.publicKey));
-        const keyId = message.keyId || 'key_' + Date.now();
-        await ks.addKey(keyId, privateKeyBytes, publicKeyBytes);
-        privateKeyBytes.fill(0);
-        ks.lock();
-        return {
-          keyId,
-          publicKey: bytesToHex(publicKeyBytes),
-          algorithm: 'ed25519',
-        };
+        const mnemonic = await generateMnemonic(128);
+        await ks.setSeed(mnemonic);
+        const derived = await deriveKey(mnemonic, '', 0);
+        const keyId = newKeyId();
+        await ks.addKey(keyId, derived.pkcs8, derived.publicKey, { source: 'seed', derivationPath: derived.path, label: 'Primary key' });
+        derived.pkcs8.fill(0);
+        // Leave the keystore unlocked (WB-04): the user just created it, so the
+        // session is live and the dashboard lands unlocked.
+        walletState.adi = adi;
+        walletState.connected = true;
+        saveState();
+        return { mnemonic, adi, keyId, publicKey: bytesToHex(derived.publicKey) };
       } catch (err) {
-        ks.lock();
         throw err;
       }
+    }
+
+    case 'wallet.restoreFromMnemonic': {
+      const passphrase = requirePassphrase(message.passphrase);
+      const adi = message.adi;
+      const mnemonic = String(message.mnemonic || '').trim().replace(/\s+/g, ' ');
+      if (!adi) return { error: 'adi required' };
+      if (!(await validateMnemonic(mnemonic))) return { error: 'invalid recovery phrase' };
+      const ks = getKeystore();
+      await unlockOrInitializeKeystore(ks, passphrase);
+      try {
+        await ks.setSeed(mnemonic);
+        const derived = await deriveKey(mnemonic, '', 0);
+        const keyId = newKeyId();
+        await ks.addKey(keyId, derived.pkcs8, derived.publicKey, { source: 'seed', derivationPath: derived.path, label: 'Primary key' });
+        derived.pkcs8.fill(0);
+        // Leave unlocked (WB-04): restore lands the dashboard unlocked.
+        walletState.adi = adi;
+        walletState.connected = true;
+        saveState();
+        return { restored: true, adi, keyId, publicKey: bytesToHex(derived.publicKey) };
+      } catch (err) {
+        throw err;
+      }
+    }
+
+    case 'wallet.revealMnemonic': {
+      // Re-auth-gated: the user must re-enter the passphrase to view the phrase
+      // (verified by unlock), even within an open session. Never logged;
+      // returned once for the reveal screen. On success the session stays
+      // unlocked (the unlock above proved the passphrase); only a failed reveal
+      // locks.
+      const passphrase = requirePassphrase(message.passphrase);
+      const ks = getKeystore();
+      try {
+        await ks.unlock(passphrase);
+        const mnemonic = await ks.getSeed();
+        return { mnemonic };
+      } catch (err) {
+        ks.lock();
+        return { error: String(err.message || err).includes('invalid passphrase') ? 'invalid passphrase' : (err.message || 'reveal failed') };
+      }
+    }
+
+    // ---- Unlock session (WB-04) ----
+    // Derive the wrapping key ONCE and keep the keystore unlocked for a bounded,
+    // user-visible idle window, so signing is instant (no 600k PBKDF2 per
+    // signature). The idle timer (or SW eviction, or an explicit lock) ends the
+    // session. No secret is ever persisted across eviction.
+    case 'wallet.unlock': {
+      const passphrase = requirePassphrase(message.passphrase);
+      const ks = getKeystore();
+      await ks.unlock(passphrase); // throws 'invalid passphrase' on mismatch
+      return { unlocked: true, remainingMs: ks.remainingMs(), idleTimeoutMs: ks.idleTimeoutMs };
+    }
+
+    case 'wallet.lock': {
+      getKeystore().lock();
+      return { unlocked: false };
+    }
+
+    // Change passphrase (WB-05): re-encrypt every key + the recovery-phrase
+    // record under a new passphrase. rotate() verifies the current passphrase
+    // first (atomic — a wrong current never writes) and leaves the keystore
+    // unlocked under the new key.
+    case 'wallet.rotatePassphrase': {
+      const oldPass = message.oldPassphrase;
+      const newPass = message.newPassphrase;
+      if (typeof oldPass !== 'string' || oldPass.length === 0) return { error: 'current passphrase required' };
+      if (typeof newPass !== 'string' || newPass.length === 0) return { error: 'new passphrase required' };
+      if (oldPass === newPass) return { error: 'new passphrase must differ from the current one' };
+      try {
+        await getKeystore().rotate(oldPass, newPass);
+        const keys = await listStoredKeys();
+        return { rotated: true, keyCount: keys.length };
+      } catch (err) {
+        const msg = String(err.message || err);
+        return { error: msg.includes('invalid passphrase') ? 'current passphrase is incorrect' : msg };
+      }
+    }
+
+    case 'wallet.lockStatus': {
+      const ks = getKeystore();
+      return { unlocked: ks.isUnlocked(), remainingMs: ks.remainingMs(), idleTimeoutMs: ks.idleTimeoutMs };
+    }
+
+    case 'wallet.setIdleTimeout': {
+      const ms = Number(message.ms);
+      // Clamp to [1 min, 1 hour].
+      const clamped = Math.max(60_000, Math.min(3_600_000, Number.isFinite(ms) ? ms : 15 * 60_000));
+      getKeystore().setIdleTimeout(clamped);
+      return { idleTimeoutMs: clamped };
+    }
+
+    // ---- Signer seam (WB-06) ----
+    // Split "produce a signature" from "assemble + submit the approval", so a
+    // signature can come from the software keystore OR a hardware device (the
+    // popup, where WebHID/WebAuthn live), while the background remains the sole
+    // assembler/submitter of the approval envelope.
+
+    // previewSignaturePayload returns the canonical bytes the user/device will
+    // sign — the single source of truth (also surfaced in the UI by WB-10).
+    case 'wallet.previewSignaturePayload': {
+      try {
+        const signerIdentity = walletState.adi;
+        const payload = approvalSignaturePayload(message.intentId, message.planHash, signerIdentity);
+        return { payload, signerIdentity };
+      } catch (e) {
+        return { error: e.message || String(e) };
+      }
+    }
+
+    // signPayload produces a detached Ed25519 signature over the EXACT payload
+    // bytes using the unlocked software keystore. It never assembles an
+    // envelope. (Hardware signing happens in the popup, not here.)
+    case 'wallet.signPayload': {
+      if (typeof message.payload !== 'string' || message.payload.length === 0) {
+        return { error: 'payload required' };
+      }
+      const sig = await signWithStoredKey({
+        passphrase: message.passphrase,
+        message: message.payload,
+        keyId: message.keyId,
+        publicKey: message.publicKey,
+      });
+      return { signature: sig.signature, publicKey: sig.publicKey, algorithm: sig.algorithm, keyId: sig.keyId };
+    }
+
+    // submitApproval assembles the approval envelope from a signature produced
+    // anywhere (software or hardware) and submits it. When a queued requestId is
+    // supplied it applies the same confused-deputy plan-hash guard as
+    // approveRequest before submitting.
+    case 'wallet.submitApproval': {
+      if (message.requestId != null) {
+        const req = walletState.pendingRequests.get(message.requestId);
+        if (req) {
+          const requestHash = req.params && (req.params.planHash || (req.params.plan && req.params.plan.hash));
+          if (requestHash && message.planHash !== requestHash) {
+            return { error: 'Plan hash mismatch — popup submitted a different plan than the one queued (aborted to prevent confused-deputy attack)' };
+          }
+          walletState.pendingRequests.delete(message.requestId);
+        }
+      }
+      return submitApprovalEnvelope({
+        intentId: message.intentId,
+        planHash: message.planHash,
+        signerIdentity: message.signerIdentity || walletState.adi,
+        signerPublicKey: message.signerPublicKey,
+        signature: message.signature,
+        signatureAlgorithm: message.signatureAlgorithm || 'ed25519',
+        signaturePayload: message.signaturePayload,
+      });
     }
 
     case 'wallet.listKeys':
       return { keys: await listStoredKeys() };
 
-    case 'wallet.deleteKey': {
-      const passphrase = requirePassphrase(message.passphrase);
+    // Rename a key's human label (WB-09). Metadata-only — no key decryption,
+    // so no unlock is required.
+    case 'wallet.renameKey': {
+      if (!message.keyId) return { error: 'keyId required' };
+      const ok = await getKeystore().setKeyLabel(message.keyId, message.label || '');
+      return { renamed: ok };
+    }
+
+    // Verify a passphrase without performing a signing operation, so the popup
+    // can implement an explicit unlock with immediate feedback on a wrong
+    // passphrase (rather than failing only at sign time). A not-yet-initialized
+    // keystore (fresh wallet, no keys) accepts any passphrase — the first
+    // generateKey initializes the keystore with it.
+    case 'wallet.verifyPassphrase': {
+      const passphrase = message.passphrase;
+      if (typeof passphrase !== 'string' || passphrase.length === 0) {
+        return { ok: false, error: 'wallet passphrase required' };
+      }
       const ks = getKeystore();
-      await ks.unlock(passphrase);
+      try {
+        await ks.unlock(passphrase);
+        ks.lock();
+        return { ok: true };
+      } catch (err) {
+        if (String(err.message || err).includes('keystore not initialized')) {
+          return { ok: true, uninitialized: true };
+        }
+        return { ok: false, error: err.message };
+      }
+    }
+
+    case 'wallet.deleteKey': {
+      const ks = getKeystore();
+      await ensureUnlocked(ks, message.passphrase); // session or passphrase; no lock after (WB-04)
       const keys = await listStoredKeys();
       const key = keys.find(k => k.keyId === message.keyId || k.publicKey === message.publicKey);
-      if (!key) {
-        ks.lock();
-        return { deleted: false };
-      }
+      if (!key) return { deleted: false };
       const deleted = await ks.deleteKey(key.keyId);
-      ks.lock();
       return { deleted };
+    }
+
+    // ---- Backup / Restore (WB-02) ----
+    // The stored keystore is already AES-GCM encrypted under the passphrase, so
+    // a backup is the ciphertext store handed to the user as a file. It never
+    // contains a plaintext key or the passphrase. The ADI is public and is
+    // included so a restore is complete.
+    case 'wallet.exportBackup': {
+      const store = await getKeystore().exportStore();
+      if (!store) return { error: 'nothing to back up: no keystore yet' };
+      walletState.backedUpAt = new Date().toISOString();
+      saveState();
+      return {
+        backup: {
+          format: 'infrix-keystore-backup',
+          formatVersion: 1,
+          exportedAt: walletState.backedUpAt,
+          adi: walletState.adi || '',
+          store,
+        },
+      };
+    }
+
+    // Mark the account as backed up (e.g. the user wrote down + confirmed their
+    // recovery phrase, which is itself a complete backup) so the nudge clears.
+    case 'wallet.markBackedUp': {
+      walletState.backedUpAt = walletState.backedUpAt || new Date().toISOString();
+      saveState();
+      return { backedUpAt: walletState.backedUpAt };
+    }
+
+    case 'wallet.importBackup': {
+      const backup = message.backup;
+      if (!backup || backup.format !== 'infrix-keystore-backup' || !backup.store) {
+        return { error: 'not a valid Infrix backup file' };
+      }
+      const existing = await getKeystore().exportStore();
+      const hasKeys = existing && Array.isArray(existing.keys) && existing.keys.length > 0;
+      if (hasKeys && !message.overwrite) {
+        // Refuse to clobber an existing keystore unless explicitly confirmed.
+        return { error: 'a keystore already exists on this device', needsOverwrite: true };
+      }
+      try {
+        await getKeystore().importStore(backup.store);
+      } catch (e) {
+        return { error: e.message || String(e) };
+      }
+      encryptedKeystore = null; // force reload of the freshly-written store
+      if (backup.adi) {
+        walletState.adi = backup.adi;
+        walletState.connected = true;
+      }
+      // A restored store is, by definition, already backed up.
+      walletState.backedUpAt = walletState.backedUpAt || new Date().toISOString();
+      saveState();
+      const keys = await listStoredKeys();
+      return { imported: true, keyCount: keys.length, adi: walletState.adi };
     }
 
     // ---- Transaction Signing ----
@@ -250,16 +537,20 @@ async function handleMessage(message, sender) {
         return rpcProxy('intent.submit', augmentDisclosureContext(req.params || {}));
       }
       if (req.type === 'approveIntent' || req.type === 'wallet.approveIntent' || req.type === 'approval.signPlan') {
+        const intentId = req.params && req.params.intentId;
         const planHash = req.signedPlanHash || (req.params && req.params.planHash);
-        const signaturePayload = approvalSignaturePayload(req.params && req.params.intentId, planHash, walletState.adi);
+        const signaturePayload = approvalSignaturePayload(intentId, planHash, walletState.adi);
         const signature = await signWithStoredKey({
           passphrase: message.passphrase,
           message: signaturePayload,
           keyId: message.keyId,
           publicKey: message.publicKey,
         });
-        const params = augmentDisclosureContext({
-          intentId: req.params && req.params.intentId,
+        // WB-06: share the one envelope-assembly + submit path with the
+        // popup-orchestrated signer (wallet.submitApproval), so software and
+        // hardware approvals are wire-identical.
+        return submitApprovalEnvelope({
+          intentId,
           planHash,
           signerIdentity: walletState.adi,
           signerPublicKey: signature.publicKey,
@@ -267,7 +558,6 @@ async function handleMessage(message, sender) {
           signatureAlgorithm: signature.algorithm,
           signaturePayload,
         });
-        return rpcProxy('approval.submit', params);
       }
       return { approved: true, signedPlanHash: req.signedPlanHash || null };
     }
@@ -353,6 +643,26 @@ function getKeystore() {
   return encryptedKeystore;
 }
 
+/**
+ * ensureUnlocked is the WB-04 session gate. If the keystore is already unlocked
+ * (an active session), it returns immediately — no re-derivation, instant
+ * signing. If locked, it unlocks with the supplied passphrase (unlock-on-demand
+ * for callers that still pass one). If locked and no passphrase is available, it
+ * throws a typed WALLET_LOCKED so the popup can prompt the user to unlock rather
+ * than failing opaquely. It never locks afterward — the idle timer, an explicit
+ * wallet.lock, or SW eviction ends the session.
+ */
+async function ensureUnlocked(ks, passphrase) {
+  if (ks.isUnlocked()) return;
+  if (typeof passphrase === 'string' && passphrase.length > 0) {
+    await ks.unlock(passphrase);
+    return;
+  }
+  const err = new Error('wallet is locked');
+  err.code = 'WALLET_LOCKED';
+  throw err;
+}
+
 function chromeStorageAdapter() {
   return {
     get(key) {
@@ -395,6 +705,11 @@ async function listStoredKeys() {
     publicKey: bytesToHex(k.pubKey),
     algorithm: 'ed25519',
     createdAt: k.createdAt,
+    source: k.source || 'random',
+    derivationPath: k.derivationPath || '',
+    label: k.label || '',
+    purpose: k.purpose || '',
+    lastUsedAt: k.lastUsedAt || '',
   }));
 }
 
@@ -414,10 +729,13 @@ function requirePassphrase(passphrase) {
 }
 
 async function signWithStoredKey({ passphrase, message, keyId, publicKey }) {
-  const checkedPassphrase = requirePassphrase(passphrase);
   const messageBytes = signableMessageBytes(message);
   const ks = getKeystore();
-  await ks.unlock(checkedPassphrase);
+  // WB-04: use the unlocked session if one is open (instant, no re-derive);
+  // otherwise unlock-on-demand with the supplied passphrase, or throw
+  // WALLET_LOCKED. We do NOT lock afterward — the idle timer / explicit lock /
+  // SW eviction ends the session.
+  await ensureUnlocked(ks, passphrase);
   let privateKeyBytes;
   try {
     const keys = await listStoredKeys();
@@ -443,7 +761,7 @@ async function signWithStoredKey({ passphrase, message, keyId, publicKey }) {
     };
   } finally {
     if (privateKeyBytes) privateKeyBytes.fill(0);
-    ks.lock();
+    // No ks.lock() — the session persists for the idle window.
   }
 }
 
@@ -464,6 +782,24 @@ function approvalSignaturePayload(intentId, planHash, signerIdentity) {
   return ['infrix-approval-v1', intentId, planHash, signerIdentity].join(':');
 }
 
+// submitApprovalEnvelope is the single approval-submission chokepoint (WB-06):
+// it stamps the disclosure envelope and POSTs approval.submit. Both the queued
+// software path (wallet.approveRequest) and the popup-orchestrated path
+// (wallet.submitApproval, used by hardware signers) funnel through here, so the
+// wire shape is identical regardless of where the signature came from.
+function submitApprovalEnvelope({ intentId, planHash, signerIdentity, signerPublicKey, signature, signatureAlgorithm, signaturePayload }) {
+  const params = augmentDisclosureContext({
+    intentId,
+    planHash,
+    signerIdentity,
+    signerPublicKey,
+    signature,
+    signatureAlgorithm: signatureAlgorithm || 'ed25519',
+    signaturePayload,
+  });
+  return rpcProxy('approval.submit', params);
+}
+
 // ---- RPC Proxy ----
 
 async function rpcProxy(method, params) {
@@ -479,6 +815,14 @@ async function rpcProxy(method, params) {
 }
 
 // ---- Helpers ----
+
+// newKeyId returns a collision-free key id. A bare Date.now() collides when two
+// keys are created in the same millisecond — which the WB-04 instant-signing
+// session made reachable (no 600k PBKDF2 between key creations to advance the
+// clock). The random suffix makes it unique regardless.
+function newKeyId() {
+  return 'key_' + Date.now().toString(36) + '_' + generateRandomHex(8);
+}
 
 function generateRandomHex(length) {
   const bytes = new Uint8Array(length / 2);

@@ -4,7 +4,15 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-// G-25 phase 1b — hardware-key dispatcher tests.
+// G-25 phase 1b — hardware-key dispatcher CONTRACT (scaffold) tests.
+//
+// IMPORTANT (WB-11 §A): these exercise the SCAFFOLD contract only. They do NOT
+// run against a real device, do NOT use the real Accumulate Ledger protocol
+// (app-accumulate/doc/COMMANDS.md), and do NOT prove on-chain-verifiable
+// signatures. A green run here does NOT mean hardware signing works — the
+// drivers are NOT WIRED into the extension (see their file banners + WB-07
+// PARKED / WB-08). Replace with real-transport + on-chain-verification tests
+// when a hardware producer is actually wired into popup/signer.js.
 //
 // Run with: node --test extension/wallet/hardware/hardware.test.mjs
 // Requires Node 20+ (built-in webcrypto + node:test).

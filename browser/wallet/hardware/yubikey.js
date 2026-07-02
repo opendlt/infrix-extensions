@@ -4,7 +4,23 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-// G-25 phase 1b — YubiKey ED25519 driver.
+// ============================================================================
+// STATUS: NOT WIRED — contract sketch only. (WB-11 §A)
+//
+// This driver is NOT used by the extension. Critically, its sign() returns a
+// WebAuthn ASSERTION signature (over authenticatorData ‖ SHA-256(clientDataJSON)),
+// which is NOT a raw Ed25519 signature over the message and will NOT verify
+// against the Infrix approval payload — despite the "ED25519 signature" wording
+// below. The rpId default ('infrix.local') is also invalid for a
+// chrome-extension origin. Do NOT wire this as a transaction signer.
+//
+// The correct, achievable role (WB-08 Path A) is YubiKey as a 2FA *unlock*
+// factor (WebAuthn user-verification gating keystore unlock), which needs no
+// device app and produces no signature. A passing hardware.test.mjs run does
+// NOT imply a working hardware signer.
+// ============================================================================
+
+// G-25 phase 1b — YubiKey ED25519 driver (scaffold).
 //
 // Drives a YubiKey via WebAuthn for ED25519 signatures. WebAuthn
 // is the canonical browser API for FIDO2 hardware tokens; newer

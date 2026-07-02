@@ -4,7 +4,19 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-// G-25 phase 1b — hardware-key dispatcher.
+// ============================================================================
+// STATUS: NOT WIRED — contract sketch only. (WB-11 §A)
+//
+// This dispatcher and its drivers (ledger.js, yubikey.js) are NOT used by the
+// extension — nothing outside wallet/hardware/ imports them, and the popup
+// signer seam (popup/signer.js, WB-06) registers no hardware producer. The
+// drivers are scaffolds whose protocols do not match reality (see their NOT
+// WIRED banners). A passing hardware.test.mjs run does NOT imply working
+// hardware. Real wiring is tracked by docs/runbooks/WB-07 (Ledger, PARKED) and
+// WB-08 (YubiKey).
+// ============================================================================
+
+// G-25 phase 1b — hardware-key dispatcher (scaffold).
 //
 // HardwareKeyDispatcher is the single seam the popup's plan-approval
 // flow consults to decide between hardware-key signing (Ledger /

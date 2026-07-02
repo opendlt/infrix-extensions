@@ -4,23 +4,34 @@
 // license that can be found in the LICENSE file or at
 // https://opensource.org/licenses/MIT.
 
-// G-25 phase 1b — Ledger ED25519 driver.
+// ============================================================================
+// STATUS: NOT WIRED — contract sketch only. (WB-11 §A)
+//
+// This driver is NOT used by the extension: nothing outside wallet/hardware/
+// imports it, and the popup signer seam (popup/signer.js) registers no Ledger
+// producer. Its APDU protocol below is an INVENTED sketch (INS 0x02/0x04, no
+// BIP32 path) and does NOT match the real Accumulate Ledger app
+// (app-accumulate/doc/COMMANDS.md: CLA 0xE0, GET_PUBLIC_KEY 0x05 with a BIP32
+// path, SIGN_TX 0x06). A passing hardware.test.mjs run does NOT imply working
+// hardware.
+//
+// WB-07 is PARKED: the Accumulate Ledger app signs Accumulate *transactions*
+// only (no blind-sign), so it cannot sign Infrix's bespoke approval payload.
+// See docs/runbooks/WB-07-ledger-governed-approval.md for the evidence and the
+// unblock conditions. Do not wire this driver until the real protocol is
+// implemented against that doc.
+// ============================================================================
+
+// G-25 phase 1b — Ledger ED25519 driver (scaffold).
 //
 // Drives a Ledger device over WebHID for ED25519 signing. The
 // transport is constructor-injected so tests can pass a fake
 // WebHID device; production passes navigator.hid (or a thin
 // wrapper that handles the native WebHID resync semantics).
 //
-// Protocol shape (Ledger ED25519 app):
+// Protocol shape (INVENTED sketch — see NOT WIRED banner above):
 //   - GET_PUBLIC_KEY: CLA=0xE0 INS=0x02
 //   - SIGN_MESSAGE:   CLA=0xE0 INS=0x04 (chunked for messages > 200B)
-//
-// This driver implements the protocol shape, NOT a full Ledger
-// transport. Real production wiring uses @ledgerhq/hw-transport-webhid
-// or an equivalent library that handles the device handshake,
-// chunking, and APDU framing. The shape here is the contract every
-// such driver satisfies; tests exercise the contract via a fake
-// transport.
 
 const LEDGER_VENDOR_ID = 0x2c97; // Ledger
 const APDU_CLA = 0xe0;
