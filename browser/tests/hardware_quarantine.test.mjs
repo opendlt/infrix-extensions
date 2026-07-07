@@ -48,8 +48,14 @@ test('no shipping extension code wires a hardware producer into the signer seam'
   // software-only, so the extension never advertises hardware signing as available
   // (pass-19 audit P2-4). This is the structural resolution of P2-4's "remove
   // hardware signing from production-facing claims": enforced by fence, not left
-  // to inspection. Flip this to REQUIRE the wiring once a hardware driver is
-  // genuinely wired and device-certified.
+  // to inspection.
+  //
+  // ACCEPTANCE CRITERIA to lift this quarantine (pass-20 audit P2-2): a hardware
+  // driver may only be wired into the signer seam once it ships with (1)
+  // device-backed signing vectors from a real physical device (Ledger/YubiKey via
+  // WebHID/WebAuthn) proving a real signature, and (2) a user-consent UX test
+  // covering the on-device approval flow. When those land, flip this test to
+  // REQUIRE the wiring instead of forbidding it.
   const shipping = [
     'background.js', 'content.js', 'cinema-widget.js', 'debug-panel.js',
     'popup/popup.js', 'popup/plan-approval.js', 'popup/api.js',
