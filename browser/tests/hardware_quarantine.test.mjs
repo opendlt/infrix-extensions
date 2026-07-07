@@ -38,3 +38,25 @@ test('hardware contract tests are labelled as scaffold (not real-device)', async
   const src = await readExtensionFile('wallet/hardware/hardware.test.mjs');
   assert.ok(src.includes('CONTRACT (scaffold)'), 'hardware.test.mjs must declare itself a scaffold/contract test');
 });
+
+test('no shipping extension code wires a hardware producer into the signer seam', async () => {
+  // popup/signer.js DEFINES registerHardware(producer){...} (the seam), but no
+  // shipping file may CALL it while hardware is NOT WIRED. A registered producer
+  // is exactly what would surface a Ledger/YubiKey option in
+  // WalletSigner.availableSigners() — i.e. a production-facing CLAIM that hardware
+  // signing works. Keeping registerHardware un-called guarantees the signer UI is
+  // software-only, so the extension never advertises hardware signing as available
+  // (pass-19 audit P2-4). This is the structural resolution of P2-4's "remove
+  // hardware signing from production-facing claims": enforced by fence, not left
+  // to inspection. Flip this to REQUIRE the wiring once a hardware driver is
+  // genuinely wired and device-certified.
+  const shipping = [
+    'background.js', 'content.js', 'cinema-widget.js', 'debug-panel.js',
+    'popup/popup.js', 'popup/plan-approval.js', 'popup/api.js',
+  ];
+  const callsRegister = /\.registerHardware\s*\(/;
+  for (const f of shipping) {
+    const src = await readExtensionFile(f);
+    assert.equal(callsRegister.test(src), false, `${f} must not wire a hardware producer (registerHardware) into the signer seam while hardware is NOT WIRED`);
+  }
+});
